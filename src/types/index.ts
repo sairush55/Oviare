@@ -77,3 +77,18 @@ export interface UserProfile {
   updated_at?: string;
 }
 
+export interface CycleRecord {
+  id: string;
+  user_id: string;
+  period_start: string; // ISO format 'YYYY-MM-DD'
+  period_end: string | null; // ISO format 'YYYY-MM-DD' or null if ongoing
+  flow_intensity?: 'light' | 'medium' | 'heavy' | 'spotting' | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateCycleRecordInput = Omit<CycleRecord, 'id' | 'created_at' | 'updated_at'>;
+export type UpdateCycleRecordInput = Partial<Omit<CycleRecord, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+

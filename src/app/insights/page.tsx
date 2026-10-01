@@ -14,7 +14,7 @@ import { useCycleData } from '@/context/CycleDataContext';
 import { BarChart2, PlusCircle, Activity, Sparkles, ShieldAlert } from 'lucide-react';
 
 export default function InsightsPage() {
-  const { entries, demoMode, setDemoMode, preferences } = useCycleData();
+  const { entries, cycleStats, demoMode, setDemoMode, preferences } = useCycleData();
 
   const hasData = entries.length > 0;
 
@@ -57,17 +57,18 @@ export default function InsightsPage() {
         />
       ) : (
         <>
-          {/* Cycle Summary Stats Placeholder */}
+          {/* Cycle Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card variant="default" padding="sm" className="space-y-1">
               <span className="text-[11px] font-medium text-oviareText-secondary">
                 Average Cycle Length
               </span>
               <p className="font-serif text-2xl font-medium text-oviareText-primary">
-                28.2 <span className="text-xs font-sans text-oviareText-secondary">days</span>
+                {cycleStats.averageCycleLength ?? preferences.averageCycleLength}{' '}
+                <span className="text-xs font-sans text-oviareText-secondary">days</span>
               </p>
               <span className="text-[10px] text-oviareText-muted block">
-                Standard baseline
+                {cycleStats.hasSufficientData ? 'Rolling average' : 'Standard baseline'}
               </span>
             </Card>
 
@@ -76,10 +77,11 @@ export default function InsightsPage() {
                 Average Period Duration
               </span>
               <p className="font-serif text-2xl font-medium text-oviareText-primary">
-                {preferences.averagePeriodLength}.0 <span className="text-xs font-sans text-oviareText-secondary">days</span>
+                {cycleStats.averagePeriodDuration ?? preferences.averagePeriodLength}{' '}
+                <span className="text-xs font-sans text-oviareText-secondary">days</span>
               </p>
               <span className="text-[10px] text-oviareText-muted block">
-                Consistent flow window
+                Recorded duration
               </span>
             </Card>
 
@@ -88,10 +90,13 @@ export default function InsightsPage() {
                 Cycle Variation
               </span>
               <p className="font-serif text-2xl font-medium text-sage">
-                ±1.2 <span className="text-xs font-sans text-oviareText-secondary">days</span>
+                {cycleStats.cycleVariabilityDays !== null
+                  ? `±${cycleStats.cycleVariabilityDays}`
+                  : '—'}{' '}
+                <span className="text-xs font-sans text-oviareText-secondary">days</span>
               </p>
               <span className="text-[10px] text-oviareText-muted block">
-                High regularity
+                {cycleStats.intervalsUsedCount > 1 ? 'Standard deviation' : 'Needs 2+ cycles'}
               </span>
             </Card>
 
@@ -100,10 +105,11 @@ export default function InsightsPage() {
                 Tracked Cycles
               </span>
               <p className="font-serif text-2xl font-medium text-oviareText-primary">
-                6 <span className="text-xs font-sans text-oviareText-secondary">cycles</span>
+                {cycleStats.completedCyclesCount}{' '}
+                <span className="text-xs font-sans text-oviareText-secondary">cycles</span>
               </p>
               <span className="text-[10px] text-oviareText-muted block">
-                Includes sample history
+                {demoMode ? 'Sample history' : 'Personal records'}
               </span>
             </Card>
           </div>

@@ -34,7 +34,13 @@ export default function ForgotPasswordPage() {
       });
 
       if (error) {
-        setErrorMessage(error.message || 'Unable to request password reset. Please try again.');
+        if (error.message.toLowerCase().includes('rate limit')) {
+          setErrorMessage(
+            'Email request rate limit reached. Supabase built-in service allows a limited number of emails per hour. Please wait a short while or configure custom SMTP in Supabase.'
+          );
+        } else {
+          setErrorMessage(error.message || 'Unable to request password reset. Please try again.');
+        }
         setIsLoading(false);
         return;
       }

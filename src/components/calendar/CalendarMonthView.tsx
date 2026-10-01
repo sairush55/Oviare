@@ -5,10 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Droplet, Plus } from 'lucide-react';
 import { useCycleData } from '@/context/CycleDataContext';
 import { DayDetailsModal } from './DayDetailsModal';
-import { DailyLogEntry } from '@/types';
+import { PeriodLogModal } from '../cycle/PeriodLogModal';
+import { CycleRecord } from '@/types';
+import { addDaysToISODate } from '@/lib/cycle/calculations';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -21,7 +23,12 @@ export const CalendarMonthView: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState<number>(9); // 0-indexed: 9 = October
 
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isDayDetailsOpen, setIsDayDetailsOpen] = useState<boolean>(false);
+
+  // Period log modal state
+  const [isPeriodModalOpen, setIsPeriodModalOpen] = useState<boolean>(false);
+  const [editingPeriodRecord, setEditingPeriodRecord] = useState<CycleRecord | null>(null);
+  const [defaultPeriodDate, setDefaultPeriodDate] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
@@ -29,11 +36,16 @@ export const CalendarMonthView: React.FC = () => {
       setCurrentYear(y);
       setCurrentMonth(m - 1);
       setSelectedDateStr(dateParam);
-      setIsModalOpen(true);
+      setIsDayDetailsOpen(true);
     }
   }, [dateParam]);
 
-  const { entries, demoMode } = useCycleData();
+  const {
+    entries,
+    cycleRecords,
+    nextPeriodPrediction,
+    demoMode,
+  } = useCycleData();
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -59,11 +71,12 @@ export const CalendarMonthView: React.FC = () => {
   };
 
   // Month metadata
-  const monthName = new Date(currentYear, currentMonth, 1).toLocaleString('default', {
+  const monthName = new Date(Date.UTC(currentYear, currentMonth, 1)).toLocaleString('default', {
     month: 'long',
+    timeZone: 'UTC',
   });
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sun
+  const daysInMonth = new Date(Date.UTC(currentYear, currentMonth + 1, 0)).getUTCDate();
+  const firstDayOfWeek = new Date(Date.UTC(currentYear, currentMonth, 1)).getUTCDay(); // 0 = Sun
 
   // Helpers to evaluate day states
   const getDayDateString = (day: number) => {
@@ -72,45 +85,64 @@ export const CalendarMonthView: React.FC = () => {
     return `${currentYear}-${mStr}-${dStr}`;
   };
 
-  // Predetermined sample rhythm windows (for demo demonstration)
-  const isSamplePeriod = (dateStr: string) => {
-    if (!demoMode) return false;
-    // September 8-12 was previous period
-    return ['2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-12'].includes(dateStr);
+  // Lookup matching recorded period for a date
+  const getPeriodRecordForDate = (dateStr: string): CycleRecord | undefined => {
+    return cycleRecords.find((r) => {
+      const start = r.period_start;
+      const end = r.period_end || r.period_start;
+      return dateStr >= start && dateStr <= end;
+    });
   };
 
-  const isSamplePredicted = (dateStr: string) => {
-    if (!demoMode) return false;
-    // October 5-9 is predicted period
-    return ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09'].includes(dateStr);
+  // Check if date falls in predicted period window
+  const isPredictedPeriod = (dateStr: string): boolean => {
+    const { estimatedStartDate, estimatedEndDate } = nextPeriodPrediction;
+    if (!estimatedStartDate || !estimatedEndDate) return false;
+    return dateStr >= estimatedStartDate && dateStr <= estimatedEndDate;
   };
 
-  const isSampleFertile = (dateStr: string) => {
-    if (!demoMode) return false;
-    // September 21-24 and October 18-21
-    return [
-      '2026-09-20', '2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24',
-      '2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21',
-    ].includes(dateStr);
+  // Check if date falls in estimated fertile window (around 14 days before predicted next period)
+  const isFertileWindow = (dateStr: string): boolean => {
+    const { estimatedStartDate } = nextPeriodPrediction;
+    if (!estimatedStartDate) return false;
+    try {
+      const ovulationDate = addDaysToISODate(estimatedStartDate, -14);
+      const fertileStart = addDaysToISODate(ovulationDate, -4);
+      return dateStr >= fertileStart && dateStr <= ovulationDate;
+    } catch {
+      return false;
+    }
   };
 
   const handleDayClick = (dateStr: string) => {
     setSelectedDateStr(dateStr);
-    setIsModalOpen(true);
+    setIsDayDetailsOpen(true);
+  };
+
+  const handleOpenNewPeriodModal = (dateStr?: string) => {
+    setDefaultPeriodDate(dateStr || '2026-10-01');
+    setEditingPeriodRecord(null);
+    setIsPeriodModalOpen(true);
+  };
+
+  const handleOpenEditPeriodModal = (record: CycleRecord) => {
+    setEditingPeriodRecord(record);
+    setIsPeriodModalOpen(true);
   };
 
   // Selected day entry & attributes for modal
   const selectedEntry = selectedDateStr ? entries.find((e) => e.date === selectedDateStr) : undefined;
-  const isSelectedPeriod = selectedDateStr ? (selectedEntry?.flow && selectedEntry.flow !== 'none') || isSamplePeriod(selectedDateStr) : false;
-  const isSelectedPredicted = selectedDateStr ? isSamplePredicted(selectedDateStr) : false;
-  const isSelectedFertile = selectedDateStr ? isSampleFertile(selectedDateStr) : false;
+  const selectedPeriodRecord = selectedDateStr ? getPeriodRecordForDate(selectedDateStr) : undefined;
+  const isSelectedPeriod = Boolean(selectedPeriodRecord) || Boolean(selectedEntry?.flow && selectedEntry.flow !== 'none');
+  const isSelectedPredicted = selectedDateStr ? isPredictedPeriod(selectedDateStr) : false;
+  const isSelectedFertile = selectedDateStr ? isFertileWindow(selectedDateStr) : false;
   const isSelectedToday = selectedDateStr === '2026-10-01';
 
   return (
     <>
       <Card variant="default" padding="none" className="overflow-hidden">
         {/* Month Navigation Bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-oviareBorder bg-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-oviareBorder bg-white">
           <div className="flex items-center gap-3">
             <h2 className="font-serif text-xl sm:text-2xl font-medium text-oviareText-primary">
               {monthName} <span className="text-oviareText-secondary font-normal">{currentYear}</span>
@@ -120,9 +152,22 @@ export const CalendarMonthView: React.FC = () => {
                 Current
               </Badge>
             )}
+            {demoMode && (
+              <Badge variant="sample" size="sm">
+                Sample
+              </Badge>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleOpenNewPeriodModal()}
+              leftIcon={<Droplet className="w-3.5 h-3.5 text-plum" />}
+            >
+              Log Period
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -185,12 +230,12 @@ export const CalendarMonthView: React.FC = () => {
               const dateStr = getDayDateString(day);
               const isToday = dateStr === '2026-10-01';
 
-              // Entry lookup
+              // Entry & Period lookup
               const entry = entries.find((e) => e.date === dateStr);
-              const isLoggedPeriod = entry?.flow && entry.flow !== 'none';
-              const isPeriod = isLoggedPeriod || isSamplePeriod(dateStr);
-              const isPredicted = isSamplePredicted(dateStr);
-              const isFertile = isSampleFertile(dateStr);
+              const periodRecord = getPeriodRecordForDate(dateStr);
+              const isLoggedPeriod = Boolean(periodRecord) || (entry?.flow && entry.flow !== 'none');
+              const isPredicted = isPredictedPeriod(dateStr);
+              const isFertile = isFertileWindow(dateStr);
               const hasLogs = entry && (entry.symptoms.length > 0 || entry.moods.length > 0 || entry.notes);
 
               let cellBg = 'bg-white hover:bg-ivory-50 border-oviareBorder/80';
@@ -199,7 +244,7 @@ export const CalendarMonthView: React.FC = () => {
               if (isToday) {
                 cellBg = 'bg-mauve-light/60 border-plum/40 ring-1 ring-plum/30';
                 textStyle = 'font-semibold text-plum';
-              } else if (isPeriod) {
+              } else if (isLoggedPeriod) {
                 cellBg = 'bg-plum/10 border-plum/30';
               } else if (isPredicted) {
                 cellBg = 'bg-mauve-light/40 border-dashed border-plum/30';
@@ -235,10 +280,10 @@ export const CalendarMonthView: React.FC = () => {
 
                   {/* Indicators bar */}
                   <div className="flex flex-wrap items-center gap-1 mt-auto pt-1">
-                    {isPeriod && (
+                    {isLoggedPeriod && (
                       <span
                         className="w-2 h-2 rounded-full bg-plum"
-                        title="Logged period"
+                        title="Recorded period"
                       />
                     )}
                     {isPredicted && (
@@ -256,7 +301,7 @@ export const CalendarMonthView: React.FC = () => {
                     {hasLogs && (
                       <span
                         className="w-1 h-1 rounded-full bg-oviareText-secondary"
-                        title="Symptoms or notes logged"
+                        title="Daily symptoms logged"
                       />
                     )}
                   </div>
@@ -264,19 +309,53 @@ export const CalendarMonthView: React.FC = () => {
               );
             })}
           </div>
+
+          {/* Calendar Legend */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 pt-6 mt-4 border-t border-oviareBorder/60 text-xs text-oviareText-secondary">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-plum" />
+              Recorded Period
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full border border-plum bg-mauve/20" />
+              Predicted Period (Est.)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-sage" />
+              Fertile Window (Est.)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-oviareText-secondary" />
+              Symptoms Logged
+            </span>
+          </div>
         </div>
       </Card>
 
       {/* Day Details Modal */}
       <DayDetailsModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isDayDetailsOpen}
+        onClose={() => setIsDayDetailsOpen(false)}
         dateStr={selectedDateStr}
         entry={selectedEntry}
+        periodRecord={selectedPeriodRecord}
         isPeriod={isSelectedPeriod}
         isPredicted={isSelectedPredicted}
         isFertile={isSelectedFertile}
         isToday={isSelectedToday}
+        onEditPeriod={handleOpenEditPeriodModal}
+        onLogPeriod={handleOpenNewPeriodModal}
+      />
+
+      {/* Period Log Modal */}
+      <PeriodLogModal
+        isOpen={isPeriodModalOpen}
+        onClose={() => {
+          setIsPeriodModalOpen(false);
+          setEditingPeriodRecord(null);
+        }}
+        initialRecord={editingPeriodRecord}
+        defaultDate={defaultPeriodDate}
       />
     </>
   );

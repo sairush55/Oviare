@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CalendarMonthView } from '@/components/calendar/CalendarMonthView';
 import { CalendarLegend } from '@/components/calendar/CalendarLegend';
+import { CycleHistoryTable } from '@/components/cycle/CycleHistoryTable';
 import { Button } from '@/components/ui/Button';
 import { PlusCircle, ShieldAlert } from 'lucide-react';
 
@@ -40,6 +41,9 @@ export default function CalendarPage() {
       >
         <CalendarMonthView />
       </Suspense>
+
+      {/* Recorded Period History & Intervals */}
+      <CycleHistoryTable />
 
       {/* Health Boundaries Notice */}
       <div className="flex items-start gap-3 p-4 rounded-xl bg-ivory-100 border border-oviareBorder text-xs text-oviareText-secondary">

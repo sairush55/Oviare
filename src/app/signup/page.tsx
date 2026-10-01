@@ -71,7 +71,13 @@ export default function SignUpPage() {
       });
 
       if (error) {
-        setErrorMessage(error.message || 'Unable to register. Please try again.');
+        if (error.message.toLowerCase().includes('rate limit')) {
+          setErrorMessage(
+            'Supabase email rate limit reached (default built-in provider allows 3-4 emails/hour). To bypass this for testing, disable "Confirm email" in Supabase Dashboard (Authentication > Providers > Email).'
+          );
+        } else {
+          setErrorMessage(error.message || 'Unable to register. Please try again.');
+        }
         setIsLoading(false);
         return;
       }
