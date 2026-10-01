@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/brand/Logo';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { useCycleData } from '@/context/CycleDataContext';
 import { createClient } from '@/lib/supabase/client';
 import { getProfile, ensureProfile } from '@/lib/supabase/profile';
-import { Eye, EyeOff, Lock, Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, AlertCircle, Sparkles, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { enterDemo, exitDemo } = useCycleData();
 
   const [redirectTarget, setRedirectTarget] = useState('/dashboard');
   const [email, setEmail] = useState('');
@@ -19,14 +21,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoNotice, setInfoNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const red = params.get('redirect');
       const err = params.get('error');
+      const notice = params.get('notice');
       if (red) setRedirectTarget(red);
       if (err) setErrorMessage(err);
+      if (notice === 'account_required') {
+        setInfoNotice('Account settings and private profile management require a real account.');
+      }
     }
   }, []);
 
@@ -44,6 +51,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // Clear any prior demo state when signing into a real account
+      exitDemo();
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
@@ -75,10 +85,16 @@ export default function LoginPage() {
           router.push(redirectTarget);
         }
       }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'An unexpected error occurred during login.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred during login.';
+      setErrorMessage(msg);
       setIsLoading(false);
     }
+  };
+
+  const handleTryDemo = () => {
+    enterDemo();
+    router.push('/dashboard');
   };
 
   return (
@@ -94,6 +110,12 @@ export default function LoginPage() {
           Sign in to your private cycle sanctuary
         </p>
       </div>
+
+      {infoNotice && (
+        <div className="mb-4 p-3 rounded-xl bg-ivory-100 border border-oviareBorder text-xs text-oviareText-secondary">
+          {infoNotice}
+        </div>
+      )}
 
       <Card variant="default" padding="lg">
         {errorMessage && (
@@ -189,6 +211,29 @@ export default function LoginPage() {
           </p>
         </div>
       </Card>
+
+      {/* Try Interactive Demo Card */}
+      <div className="mt-4 p-4 rounded-2xl bg-white border border-oviareBorder text-center shadow-subtle animate-in fade-in">
+        <div className="flex items-center justify-center gap-1.5 mb-1">
+          <Sparkles className="w-4 h-4 text-plum" />
+          <h2 className="font-serif text-sm font-medium text-oviareText-primary">
+            Curious to explore first?
+          </h2>
+        </div>
+        <p className="text-xs text-oviareText-secondary mb-3 leading-relaxed max-w-sm mx-auto">
+          Experience Oviare's calendar, cycle rhythm calculations, and daily wellness tracking with safe synthetic demo data. No account required.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleTryDemo}
+          className="w-full border-plum/30 text-plum hover:bg-mauve-light/40"
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          Try Interactive Demo
+        </Button>
+      </div>
     </div>
   );
 }

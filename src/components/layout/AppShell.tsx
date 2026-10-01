@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileNav } from './MobileNav';
+import { DemoModeBanner } from './DemoModeBanner';
 import { Toast } from '../ui/Toast';
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -33,17 +34,22 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-ivory text-oviareText-primary">
-      {/* Desktop Sidebar */}
-      <Sidebar />
+    <div className="min-h-screen flex flex-col bg-ivory text-oviareText-primary">
+      {/* Persistent Demo Trial Banner */}
+      <DemoModeBanner />
 
-      {/* Mobile Top Header */}
-      <MobileHeader />
+      <div className="flex-1 flex flex-col md:flex-row">
+        {/* Desktop Sidebar */}
+        <Sidebar />
 
-      {/* Main Content Area */}
-      <main className="flex-1 min-w-0 pb-24 md:pb-12 pt-4 md:pt-8 px-4 sm:px-6 md:px-10 max-w-6xl mx-auto w-full">
-        {children}
-      </main>
+        {/* Mobile Top Header */}
+        <MobileHeader />
+
+        {/* Main Content Area */}
+        <main className="flex-1 min-w-0 pb-24 md:pb-12 pt-4 md:pt-8 px-4 sm:px-6 md:px-10 max-w-6xl mx-auto w-full">
+          {children}
+        </main>
+      </div>
 
       {/* Mobile Bottom Navigation */}
       <MobileNav />

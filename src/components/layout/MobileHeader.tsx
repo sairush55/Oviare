@@ -6,9 +6,11 @@ import { Logo } from '../brand/Logo';
 import { MedicalDisclaimerBadge } from '../brand/MedicalDisclaimerBadge';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useCycleData } from '@/context/CycleDataContext';
 
 export const MobileHeader: React.FC = () => {
   const { user, profile } = useAuth();
+  const { isDemoMode } = useCycleData();
   const initials = profile?.display_name
     ? profile.display_name.slice(0, 2).toUpperCase()
     : user?.email
@@ -30,11 +32,11 @@ export const MobileHeader: React.FC = () => {
           <Plus className="w-4 h-4" />
         </Link>
         <Link
-          href="/profile"
+          href={isDemoMode ? '/login?notice=account_required' : '/profile'}
           className="w-8 h-8 rounded-full bg-mauve text-plum font-serif text-xs font-medium flex items-center justify-center border border-mauve-border shadow-subtle"
-          aria-label="View Profile"
+          aria-label={isDemoMode ? 'Demo trial' : 'View Profile'}
         >
-          {initials}
+          {isDemoMode ? 'DM' : initials}
         </Link>
       </div>
     </header>

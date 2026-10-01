@@ -167,9 +167,86 @@ RLS Policies:
 
 SQL migration file: `supabase/migrations/20261001_cycle_records_schema.sql`.
 
+### `public.daily_logs` Table (Phase 4)
+Stores daily wellness entries (one record per user per date):
+- `id`: UUID Primary Key (`DEFAULT gen_random_uuid()`)
+- `user_id`: UUID (`REFERENCES auth.users(id) ON DELETE CASCADE`)
+- `log_date`: DATE NOT NULL
+- `moods`: TEXT[] NOT NULL (`DEFAULT '{}'`)
+- `sleep_duration_minutes`: INTEGER NULL (`CHECK (sleep_duration_minutes IS NULL OR (sleep_duration_minutes >= 0 AND sleep_duration_minutes <= 1440))`)
+- `sleep_quality`: TEXT NULL (`CHECK (sleep_quality IN ('poor', 'fair', 'good', 'excellent'))`)
+- `energy_level`: INTEGER NULL (`CHECK (energy_level >= 1 AND energy_level <= 5)`)
+- `intimacy_logged`: BOOLEAN NOT NULL (`DEFAULT FALSE`)
+- `intimacy_notes`: TEXT NULL
+- `notes`: TEXT NULL
+- `created_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- `updated_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- **Constraints**:
+  - `UNIQUE (user_id, log_date)`
+  - Index on `(user_id, log_date DESC)`
+
+RLS Policies:
+- **SELECT**: `auth.uid() = user_id`
+- **INSERT**: `auth.uid() = user_id`
+- **UPDATE**: `auth.uid() = user_id`
+- **DELETE**: `auth.uid() = user_id`
+
+### `public.daily_symptoms` Table (Phase 4)
+Stores multi-symptom details linked to daily logs:
+- `id`: UUID Primary Key (`DEFAULT gen_random_uuid()`)
+- `daily_log_id`: UUID (`REFERENCES public.daily_logs(id) ON DELETE CASCADE`)
+- `user_id`: UUID (`REFERENCES auth.users(id) ON DELETE CASCADE`)
+- `symptom_name`: TEXT NOT NULL
+- `severity`: TEXT NOT NULL (`CHECK (severity IN ('mild', 'moderate', 'severe'))`)
+- `notes`: TEXT NULL
+- **Constraints**:
+  - `UNIQUE (daily_log_id, symptom_name)`
+  - Index on `(daily_log_id)` and `(user_id, symptom_name)`
+
+RLS Policies:
+- **SELECT**: `auth.uid() = user_id`
+- **INSERT**: `auth.uid() = user_id`
+- **UPDATE**: `auth.uid() = user_id`
+- **DELETE**: `auth.uid() = user_id`
+
+### `public.custom_symptoms` Table (Phase 4)
+Stores user-defined custom symptoms:
+- `id`: UUID Primary Key (`DEFAULT gen_random_uuid()`)
+- `user_id`: UUID (`REFERENCES auth.users(id) ON DELETE CASCADE`)
+- `symptom_name`: TEXT NOT NULL
+- **Constraints**:
+  - `UNIQUE (user_id, symptom_name)`
+
+RLS Policies:
+- **SELECT**: `auth.uid() = user_id`
+- **INSERT**: `auth.uid() = user_id`
+- **UPDATE**: `auth.uid() = user_id`
+- **DELETE**: `auth.uid() = user_id`
+
+SQL migration file: `supabase/migrations/20261001_daily_wellness_schema.sql`.
+
 ---
 
-## 6. Cycle Calculations Engine
+## 6. Clean Accounts & Try Demo Isolation
+
+### Real User Accounts (Clean by Default)
+Newly registered user accounts are guaranteed to be 100% clean:
+- **Zero Mock Records**: No sample period dates, symptom entries, or dummy moods are ever inserted into the database or assigned to user accounts.
+- **Empty States**: New users are welcomed with educational, calm empty states and intuitive quick-action prompts ("Log your first period to start tracking", "No wellness check-ins logged yet").
+- **Isolated Storage**: Real accounts interact strictly with Supabase PostgreSQL tables protected by Row Level Security.
+
+### Try Demo Experience
+Visitors can explore the full application without creating an account:
+- **Entry Point**: Available directly on `/login` via the "Try Interactive Demo" button.
+- **In-Memory Synthetic Data**: Populated with realistic fictional cycle records and daily check-ins (`src/lib/demo/demoData.ts`).
+- **Zero Supabase Writes**: In demo mode, all additions, edits, and deletions occur strictly in browser memory. No network mutations or database writes are performed.
+- **Demo Mode Banner**: A persistent banner indicates demo mode is active with direct options to "Exit Demo" or "Create Real Account".
+- **Route Protection**: The server middleware permits demo visitors to browse `/dashboard`, `/calendar`, `/log`, and `/insights`, but blocks `/profile` (redirecting to `/login?notice=account_required`).
+- **Session Cleanup**: Logging in or registering an authentic account automatically purges the demo cookie (`oviare_demo_mode`) and resets the cycle data context to the user's authentic data.
+
+---
+
+## 7. Cycle Calculations Engine
 
 Located at `src/lib/cycle/calculations.ts`, the engine is a pure, independent, zero-dependency TypeScript calculation module:
 
@@ -194,7 +271,7 @@ All 17 test suites cover month boundaries, leap years (February 2024 vs 2025), m
 
 ---
 
-## 7. Supabase Auth Rate-Limit Troubleshooting
+## 8. Supabase Auth Rate-Limit Troubleshooting
 
 ### Symptom
 `AuthApiError: email rate limit exceeded` during registration (`/signup`) or password recovery (`/forgot-password`).
@@ -216,7 +293,7 @@ Supabase projects on the free tier utilize a shared built-in SMTP provider that 
 
 ---
 
-## 8. Setup & Development Commands
+## 9. Setup & Development Commands
 
 ```powershell
 # 1. Install dependencies
@@ -241,9 +318,9 @@ npm run dev
 
 ---
 
-## 9. Current Status & Phase Scope
+## 10. Project Phase Summary
 
 - **Phase 1 (Completed)**: UI design foundation, responsive AppShell, design tokens, navigation, mock views.
 - **Phase 2 (Completed)**: Supabase Auth integration, session management, onboarding, RLS-protected user profiles, security headers.
 - **Phase 3 (Completed)**: Persistent period logging, cycle calculations engine, 17 unit test suites, dynamic dashboard cycle ring & countdown, calendar month view with recorded/predicted periods, cycle history table with edit/delete confirmation, rate-limit troubleshooting.
-- **Phase 4 (Future Scope)**: Persistent multi-symptom daily check-in tables, encrypted notes, exportable PDF health reports.
+- **Phase 4 (Completed)**: Daily wellness tracking (symptoms with Mild/Moderate/Severe severity, multi-mood tracking, sleep duration & quality, 1–5 energy scale, optional private intimacy logging, custom symptoms), database schema & RLS migrations, real aggregated personal insights (frequency chart, cycle history chart, wellness stat cards), guaranteed clean new user accounts with zero mock data, and an isolated in-memory "Try Demo" experience.

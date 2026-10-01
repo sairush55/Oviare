@@ -9,29 +9,51 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CycleLengthChart } from '@/components/insights/CycleLengthChart';
 import { SymptomFrequencyChart } from '@/components/insights/SymptomFrequencyChart';
+import { WellnessSummaryCards } from '@/components/insights/WellnessSummaryCards';
 import { EducationalInsightList } from '@/components/insights/EducationalInsightList';
 import { useCycleData } from '@/context/CycleDataContext';
-import { BarChart2, PlusCircle, Activity, Sparkles, ShieldAlert } from 'lucide-react';
+import { BarChart2, PlusCircle, Activity, Sparkles, ShieldAlert, LogOut } from 'lucide-react';
 
 export default function InsightsPage() {
-  const { entries, cycleStats, demoMode, setDemoMode, preferences } = useCycleData();
+  const {
+    dailyLogs,
+    cycleRecords,
+    cycleStats,
+    isDemoMode,
+    exitDemo,
+    preferences,
+  } = useCycleData();
 
-  const hasData = entries.length > 0;
+  const hasData = dailyLogs.length > 0 || cycleRecords.length > 0;
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       <PageHeader
         title="Cycle Insights & Trends"
         subtitle="Understand recurring rhythm markers, variations, and physical patterns over time"
+        badge={
+          isDemoMode ? (
+            <Badge variant="sample" size="sm">
+              Demo Model
+            </Badge>
+          ) : (
+            <Badge variant="sage" size="sm">
+              Personal Data
+            </Badge>
+          )
+        }
         action={
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDemoMode(!demoMode)}
-            >
-              {demoMode ? 'Hide Sample Preview' : 'Show Sample Preview'}
-            </Button>
+            {isDemoMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exitDemo}
+                leftIcon={<LogOut className="w-3.5 h-3.5" />}
+              >
+                Exit Demo
+              </Button>
+            )}
             <Link href="/log">
               <Button
                 variant="primary"
@@ -48,12 +70,10 @@ export default function InsightsPage() {
       {!hasData ? (
         <EmptyState
           icon={<BarChart2 className="w-7 h-7 text-plum" />}
-          title="Insights appear after your first recorded cycle"
-          description="Oviare requires at least one logged cycle to calculate rhythm averages, symptom patterns, and duration trends. You can start logging or explore with sample data."
-          actionLabel="Log today's symptoms"
+          title="Insights appear after your first recorded cycle or daily entry"
+          description="Oviare requires at least one logged cycle or daily check-in to calculate personal rhythm averages, symptom patterns, and duration trends. Start recording today to discover your personal rhythm."
+          actionLabel="Log today's wellness"
           onAction={() => window.location.href = '/log'}
-          secondaryActionLabel="Explore sample model"
-          onSecondaryAction={() => setDemoMode(true)}
         />
       ) : (
         <>
@@ -109,29 +129,13 @@ export default function InsightsPage() {
                 <span className="text-xs font-sans text-oviareText-secondary">cycles</span>
               </p>
               <span className="text-[10px] text-oviareText-muted block">
-                {demoMode ? 'Sample history' : 'Personal records'}
+                {isDemoMode ? 'Sample history' : 'Personal records'}
               </span>
             </Card>
           </div>
 
-          {/* Sample Banner if in demo mode */}
-          {demoMode && (
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/60 text-xs text-amber-900">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-800 shrink-0" />
-                <span>
-                  <strong>Sample Visualization Mode:</strong> Graphs below illustrate typical cycle variance and are not personal medical conclusions.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDemoMode(false)}
-                className="underline hover:text-amber-950 font-medium shrink-0 ml-2"
-              >
-                Clear Sample Data
-              </button>
-            </div>
-          )}
+          {/* Daily Wellness Summary Cards */}
+          <WellnessSummaryCards />
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

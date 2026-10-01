@@ -11,6 +11,8 @@ import {
   User,
 } from 'lucide-react';
 
+import { useCycleData } from '@/context/CycleDataContext';
+
 const NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Calendar', href: '/calendar', icon: CalendarDays },
@@ -21,6 +23,7 @@ const NAV_ITEMS = [
 
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
+  const { isDemoMode } = useCycleData();
 
   return (
     <nav
@@ -34,11 +37,13 @@ export const MobileNav: React.FC = () => {
             pathname === item.href ||
             (item.href === '/dashboard' && pathname === '/');
 
+          const linkHref = isDemoMode && item.href === '/profile' ? '/login?notice=account_required' : item.href;
+
           if (item.isPrimary) {
             return (
               <Link
                 key={item.name}
-                href={item.href}
+                href={linkHref}
                 className="flex flex-col items-center justify-center -mt-5"
                 aria-label="Quick Log"
               >
@@ -65,7 +70,7 @@ export const MobileNav: React.FC = () => {
           return (
             <Link
               key={item.name}
-              href={item.href}
+              href={linkHref}
               className={`flex flex-col items-center justify-center w-14 py-1 transition-colors min-h-[44px] ${
                 isActive ? 'text-plum' : 'text-oviareText-secondary hover:text-oviareText-primary'
               }`}

@@ -9,19 +9,74 @@ export type SymptomCategory =
   | 'acne'
   | 'backache'
   | 'nausea'
-  | 'insomnia';
+  | 'insomnia'
+  | 'appetite_changes'
+  | 'digestive_discomfort'
+  | string;
+
+export type SymptomSeverity = 'mild' | 'moderate' | 'severe';
+
+export interface DailySymptom {
+  id: string;
+  daily_log_id: string;
+  user_id: string;
+  symptom_name: string;
+  severity: SymptomSeverity;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export type MoodType = 
-  | 'calm'
-  | 'balanced'
   | 'happy'
+  | 'calm'
+  | 'neutral'
+  | 'balanced'
   | 'sensitive'
   | 'low_energy'
   | 'anxious'
-  | 'irritable';
+  | 'irritable'
+  | 'sad'
+  | 'stressed';
 
-export type EnergyLevel = 'low' | 'moderate' | 'high';
+export type SleepQuality = 'poor' | 'fair' | 'good' | 'excellent';
 
+export type EnergyLevel = 'low' | 'moderate' | 'high'; // Phase 1 compatibility
+export type EnergyScale = 1 | 2 | 3 | 4 | 5; // 1: Very low, 2: Low, 3: Moderate, 4: High, 5: Very high
+
+export interface DailyLogRecord {
+  id: string;
+  user_id: string;
+  log_date: string; // ISO format 'YYYY-MM-DD'
+  moods: MoodType[];
+  sleep_duration_minutes: number | null;
+  sleep_quality: SleepQuality | null;
+  energy_level: number | null; // 1-5
+  intimacy_logged: boolean;
+  intimacy_notes?: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  symptoms?: DailySymptom[];
+}
+
+export interface UpsertDailyLogInput {
+  log_date: string;
+  moods?: MoodType[];
+  sleep_duration_minutes?: number | null;
+  sleep_quality?: SleepQuality | null;
+  energy_level?: number | null;
+  intimacy_logged?: boolean;
+  intimacy_notes?: string | null;
+  notes?: string | null;
+  symptoms?: {
+    symptom_name: string;
+    severity: SymptomSeverity;
+    notes?: string | null;
+  }[];
+}
+
+// Phase 1 legacy interface maintained for backward compatibility
 export interface DailyLogEntry {
   id: string;
   date: string; // ISO format 'YYYY-MM-DD'
@@ -90,5 +145,3 @@ export interface CycleRecord {
 
 export type CreateCycleRecordInput = Omit<CycleRecord, 'id' | 'created_at' | 'updated_at'>;
 export type UpdateCycleRecordInput = Partial<Omit<CycleRecord, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
-
-

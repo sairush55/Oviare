@@ -44,7 +44,8 @@ export const CalendarMonthView: React.FC = () => {
     entries,
     cycleRecords,
     nextPeriodPrediction,
-    demoMode,
+    getDailyLog,
+    isDemoMode,
   } = useCycleData();
 
   const handlePrevMonth = () => {
@@ -152,7 +153,7 @@ export const CalendarMonthView: React.FC = () => {
                 Current
               </Badge>
             )}
-            {demoMode && (
+            {isDemoMode && (
               <Badge variant="sample" size="sm">
                 Sample
               </Badge>
@@ -231,12 +232,19 @@ export const CalendarMonthView: React.FC = () => {
               const isToday = dateStr === '2026-10-01';
 
               // Entry & Period lookup
-              const entry = entries.find((e) => e.date === dateStr);
+              const dailyLog = getDailyLog(dateStr);
               const periodRecord = getPeriodRecordForDate(dateStr);
-              const isLoggedPeriod = Boolean(periodRecord) || (entry?.flow && entry.flow !== 'none');
+              const isLoggedPeriod = Boolean(periodRecord);
               const isPredicted = isPredictedPeriod(dateStr);
               const isFertile = isFertileWindow(dateStr);
-              const hasLogs = entry && (entry.symptoms.length > 0 || entry.moods.length > 0 || entry.notes);
+              const hasLogs = Boolean(
+                dailyLog &&
+                  ((dailyLog.symptoms && dailyLog.symptoms.length > 0) ||
+                    dailyLog.moods.length > 0 ||
+                    dailyLog.notes ||
+                    dailyLog.sleep_duration_minutes !== null ||
+                    dailyLog.energy_level !== null)
+              );
 
               let cellBg = 'bg-white hover:bg-ivory-50 border-oviareBorder/80';
               let textStyle = 'text-oviareText-primary';
@@ -337,7 +345,7 @@ export const CalendarMonthView: React.FC = () => {
         isOpen={isDayDetailsOpen}
         onClose={() => setIsDayDetailsOpen(false)}
         dateStr={selectedDateStr}
-        entry={selectedEntry}
+        dailyLog={selectedDateStr ? getDailyLog(selectedDateStr) : null}
         periodRecord={selectedPeriodRecord}
         isPeriod={isSelectedPeriod}
         isPredicted={isSelectedPredicted}

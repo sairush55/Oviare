@@ -1,10 +1,22 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  ReactNode,
+} from 'react';
 import {
+  DailyLogRecord,
+  UpsertDailyLogInput,
   DailyLogEntry,
   UserPreferences,
   CycleRecord,
+  MoodType,
+  EnergyLevel,
 } from '@/types';
 import { useAuth } from './AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -14,6 +26,13 @@ import {
   updateCycleRecord,
   deleteCycleRecord,
 } from '@/lib/supabase/cycles';
+import {
+  getDailyLogs,
+  upsertDailyLog,
+  deleteDailyLog,
+  getCustomSymptoms,
+  addCustomSymptom,
+} from '@/lib/supabase/dailyLogs';
 import {
   buildCycleHistory,
   calculateCycleStats,
@@ -25,116 +44,26 @@ import {
   CycleStats,
   PredictionResult,
 } from '@/lib/cycle/calculations';
-
-// Sample demonstration daily entries (Phase 1)
-const INITIAL_SAMPLE_ENTRIES: DailyLogEntry[] = [
-  {
-    id: 'sample-1',
-    date: '2026-09-08',
-    flow: 'medium',
-    symptoms: ['cramps', 'fatigue'],
-    moods: ['sensitive', 'low_energy'],
-    sleepHours: 7,
-    energy: 'low',
-    notes: 'Mild lower abdomen cramps in the morning.',
-    isPrototypeSample: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'sample-2',
-    date: '2026-09-09',
-    flow: 'heavy',
-    symptoms: ['cramps', 'bloating'],
-    moods: ['low_energy'],
-    sleepHours: 6.5,
-    energy: 'low',
-    isPrototypeSample: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'sample-3',
-    date: '2026-09-10',
-    flow: 'medium',
-    symptoms: ['tender_breasts'],
-    moods: ['balanced'],
-    sleepHours: 8,
-    energy: 'moderate',
-    isPrototypeSample: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'sample-4',
-    date: '2026-09-11',
-    flow: 'light',
-    symptoms: [],
-    moods: ['calm'],
-    sleepHours: 8,
-    energy: 'moderate',
-    isPrototypeSample: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'sample-5',
-    date: '2026-09-12',
-    flow: 'spotting',
-    symptoms: [],
-    moods: ['happy'],
-    sleepHours: 8.5,
-    energy: 'high',
-    isPrototypeSample: true,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-// Sample demonstration cycle records (Phase 3)
-export const INITIAL_SAMPLE_CYCLE_RECORDS: CycleRecord[] = [
-  {
-    id: 'sample-cycle-1',
-    user_id: 'demo-user',
-    period_start: '2026-07-16',
-    period_end: '2026-07-20',
-    flow_intensity: 'medium',
-    notes: 'Initial recorded period',
-    created_at: '2026-07-16T08:00:00Z',
-    updated_at: '2026-07-20T08:00:00Z',
-  },
-  {
-    id: 'sample-cycle-2',
-    user_id: 'demo-user',
-    period_start: '2026-08-13',
-    period_end: '2026-08-17',
-    flow_intensity: 'heavy',
-    notes: '28-day cycle interval, typical flow',
-    created_at: '2026-08-13T08:00:00Z',
-    updated_at: '2026-08-17T08:00:00Z',
-  },
-  {
-    id: 'sample-cycle-3',
-    user_id: 'demo-user',
-    period_start: '2026-09-08',
-    period_end: '2026-09-12',
-    flow_intensity: 'medium',
-    notes: '26-day cycle interval, regular transition',
-    created_at: '2026-09-08T08:00:00Z',
-    updated_at: '2026-09-12T08:00:00Z',
-  },
-];
+import { DEMO_CYCLE_RECORDS, DEMO_DAILY_LOGS } from '@/lib/demo/demoData';
 
 interface CycleDataContextType {
-  // Session Daily logs (Phase 1)
-  entries: DailyLogEntry[];
-  preferences: UserPreferences;
-  demoMode: boolean;
+  // Demo Mode Status & Actions
+  isDemoMode: boolean;
+  enterDemo: () => void;
+  exitDemo: () => void;
+  demoMode: boolean; // Alias
+  setDemoMode: (enabled: boolean) => void; // Alias
+
+  // Toast feedback
   toastMessage: string | null;
-  addLogEntry: (entry: Omit<DailyLogEntry, 'id' | 'createdAt'>) => void;
-  getEntryForDate: (date: string) => DailyLogEntry | undefined;
-  setDemoMode: (enabled: boolean) => void;
-  clearTemporaryData: () => void;
-  updatePreferences: (newPrefs: Partial<UserPreferences>) => void;
   showToast: (msg: string) => void;
   hideToast: () => void;
 
-  // Real Cycle Records & Engine (Phase 3)
+  // Preferences
+  preferences: UserPreferences;
+  updatePreferences: (newPrefs: Partial<UserPreferences>) => void;
+
+  // Persistent Cycle Tracking (Phase 3)
   cycleRecords: CycleRecord[];
   isLoadingCycles: boolean;
   cycleHistory: CycleHistoryItem[];
@@ -158,6 +87,22 @@ interface CycleDataContextType {
     }
   ) => Promise<{ success: boolean; error?: string }>;
   deletePeriod: (id: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Persistent Daily Wellness Tracking (Phase 4)
+  dailyLogs: DailyLogRecord[];
+  isLoadingDailyLogs: boolean;
+  customSymptoms: string[];
+  refreshDailyLogs: () => Promise<void>;
+  saveDailyWellness: (input: UpsertDailyLogInput) => Promise<{ success: boolean; error?: string }>;
+  removeDailyWellness: (logId: string) => Promise<{ success: boolean; error?: string }>;
+  getDailyLog: (dateStr: string) => DailyLogRecord | undefined;
+  addCustomSymptomName: (name: string) => Promise<void>;
+
+  // Backward compatibility helpers
+  entries: DailyLogEntry[];
+  addLogEntry: (entry: Omit<DailyLogEntry, 'id' | 'createdAt'>) => void;
+  getEntryForDate: (date: string) => DailyLogEntry | undefined;
+  clearTemporaryData: () => void;
 }
 
 const defaultPreferences: UserPreferences = {
@@ -175,16 +120,41 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   const { user } = useAuth();
   const supabase = createClient();
 
-  // Daily entries (session state)
-  const [entries, setEntries] = useState<DailyLogEntry[]>(INITIAL_SAMPLE_ENTRIES);
-  const [demoMode, setDemoMode] = useState<boolean>(true);
-  const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Demo mode state: strictly false for authenticated users
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
-  // Persistent cycle records
+  // Initialize demo mode flag from cookie / storage on client mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (user) {
+        // Real authenticated user: ensure demo mode is always disabled
+        setIsDemoMode(false);
+        document.cookie = 'oviare_demo_mode=; path=/; max-age=0';
+        localStorage.removeItem('oviare_demo_mode');
+      } else {
+        const hasDemoCookie = document.cookie.includes('oviare_demo_mode=true');
+        const hasDemoStorage = localStorage.getItem('oviare_demo_mode') === 'true';
+        if (hasDemoCookie || hasDemoStorage) {
+          setIsDemoMode(true);
+        }
+      }
+    }
+  }, [user]);
+
+  // Real user state (starts completely clean and empty)
   const [userCycleRecords, setUserCycleRecords] = useState<CycleRecord[]>([]);
-  const [sampleCycleRecords, setSampleCycleRecords] = useState<CycleRecord[]>(INITIAL_SAMPLE_CYCLE_RECORDS);
+  const [userDailyLogs, setUserDailyLogs] = useState<DailyLogRecord[]>([]);
+  const [customSymptomsList, setCustomSymptomsList] = useState<string[]>([]);
   const [isLoadingCycles, setIsLoadingCycles] = useState<boolean>(false);
+  const [isLoadingDailyLogs, setIsLoadingDailyLogs] = useState<boolean>(false);
+
+  // In-memory isolated demo state (only used when isDemoMode is true)
+  const [demoCycleRecords, setDemoCycleRecords] = useState<CycleRecord[]>(DEMO_CYCLE_RECORDS);
+  const [demoDailyLogs, setDemoDailyLogs] = useState<DailyLogRecord[]>(DEMO_DAILY_LOGS);
+
+  // UI toast feedback
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -194,7 +164,34 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     setToastMessage(null);
   }, []);
 
-  // Fetch real cycle records from Supabase when user changes
+  // Enter isolated demo trial
+  const enterDemo = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      document.cookie = 'oviare_demo_mode=true; path=/; max-age=86400; SameSite=Lax';
+      localStorage.setItem('oviare_demo_mode', 'true');
+    }
+    setDemoCycleRecords([...DEMO_CYCLE_RECORDS]);
+    setDemoDailyLogs([...DEMO_DAILY_LOGS]);
+    setIsDemoMode(true);
+    showToast('Entered interactive trial demo with sample data');
+  }, [showToast]);
+
+  // Exit demo trial and reset
+  const exitDemo = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      document.cookie = 'oviare_demo_mode=; path=/; max-age=0';
+      localStorage.removeItem('oviare_demo_mode');
+    }
+    setIsDemoMode(false);
+    setDemoCycleRecords([]);
+    setDemoDailyLogs([]);
+    showToast('Exited demo mode');
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  }, [showToast]);
+
+  // Fetch real cycle records from Supabase
   const fetchUserCycles = useCallback(async () => {
     if (!user) {
       setUserCycleRecords([]);
@@ -204,29 +201,60 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setIsLoadingCycles(true);
       const records = await getCycleRecords(supabase, user.id);
-      setUserCycleRecords(records);
+      setUserCycleRecords(records || []);
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'Failed to load cycle records';
-      console.error('Error in fetchUserCycles:', errMsg);
+      console.error('Failed to load user cycle records:', err);
     } finally {
       setIsLoadingCycles(false);
     }
   }, [user, supabase]);
 
-  useEffect(() => {
-    fetchUserCycles();
-  }, [fetchUserCycles]);
+  // Fetch real daily logs from Supabase
+  const fetchUserDailyLogs = useCallback(async () => {
+    if (!user) {
+      setUserDailyLogs([]);
+      return;
+    }
 
-  // Determine active cycle records based on demo mode and user auth
+    try {
+      setIsLoadingDailyLogs(true);
+      const [logs, customSymps] = await Promise.all([
+        getDailyLogs(supabase, user.id),
+        getCustomSymptoms(supabase, user.id),
+      ]);
+      setUserDailyLogs(logs || []);
+      setCustomSymptomsList(customSymps || []);
+    } catch (err: unknown) {
+      console.error('Failed to load user daily logs:', err);
+    } finally {
+      setIsLoadingDailyLogs(false);
+    }
+  }, [user, supabase]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserCycles();
+      fetchUserDailyLogs();
+    } else {
+      setUserCycleRecords([]);
+      setUserDailyLogs([]);
+    }
+  }, [user, fetchUserCycles, fetchUserDailyLogs]);
+
+  // Active records:
+  // If user is logged in, ALWAYS user records (never demo data!)
+  // If user is not logged in and in demo mode, demo records.
   const activeCycleRecords = useMemo(() => {
-    if (user && !demoMode) {
-      return userCycleRecords;
-    }
-    if (demoMode) {
-      return sampleCycleRecords;
-    }
-    return userCycleRecords;
-  }, [user, demoMode, userCycleRecords, sampleCycleRecords]);
+    if (user) return userCycleRecords;
+    if (isDemoMode) return demoCycleRecords;
+    return [];
+  }, [user, isDemoMode, userCycleRecords, demoCycleRecords]);
+
+  const activeDailyLogs = useMemo(() => {
+    if (user) return userDailyLogs;
+    if (isDemoMode) return demoDailyLogs;
+    return [];
+  }, [user, isDemoMode, userDailyLogs, demoDailyLogs]);
 
   // Pure cycle calculations engine outputs
   const cycleHistory = useMemo(() => {
@@ -241,12 +269,13 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     return predictNextPeriod(activeCycleRecords, cycleStats);
   }, [activeCycleRecords, cycleStats]);
 
-  // System reference date for prototype: 2026-10-01
   const cycleDayInfo = useMemo(() => {
     return getCurrentCycleDay(activeCycleRecords, '2026-10-01');
   }, [activeCycleRecords]);
 
-  // Add a new period log
+  // -------------------------------------------------------------
+  // Period Logging Operations
+  // -------------------------------------------------------------
   const addPeriod = async (input: {
     period_start: string;
     period_end?: string | null;
@@ -255,26 +284,25 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   }): Promise<{ success: boolean; error?: string }> => {
     const periodEnd = input.period_end ?? null;
 
-    // 1. Validate dates
+    // Validate
     const dateValidation = validatePeriodDates(input.period_start, periodEnd);
     if (!dateValidation.isValid) {
       return { success: false, error: dateValidation.error };
     }
 
-    // 2. Validate against existing records for conflicts/overlaps
-    const recordsToCheck = demoMode ? sampleCycleRecords : userCycleRecords;
+    const recordsToCheck = activeCycleRecords;
     const conflict = hasDateConflict(input.period_start, periodEnd, recordsToCheck);
     if (conflict.hasConflict) {
       return { success: false, error: conflict.reason };
     }
 
-    // 3. Save to Supabase if authenticated and not in demo mode
-    if (user && !demoMode) {
+    // Persist to Supabase if authenticated
+    if (user && !isDemoMode) {
       try {
         const created = await createCycleRecord(supabase, {
           user_id: user.id,
           period_start: input.period_start,
-          period_end: input.period_end || null,
+          period_end: periodEnd,
           flow_intensity: input.flow_intensity || null,
           notes: input.notes?.trim() || null,
         });
@@ -290,33 +318,25 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
     }
 
-    // 4. In demo mode or guest mode: update local state
+    // In demo mode: local in-memory update only
     const localRecord: CycleRecord = {
-      id: `local-cycle-${Date.now()}`,
-      user_id: user?.id || 'demo-user',
+      id: `demo-cycle-${Date.now()}`,
+      user_id: 'demo-visitor-trial',
       period_start: input.period_start,
-      period_end: input.period_end || null,
+      period_end: periodEnd,
       flow_intensity: input.flow_intensity || null,
       notes: input.notes?.trim() || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    if (demoMode) {
-      setSampleCycleRecords((prev) =>
-        [...prev, localRecord].sort((a, b) => a.period_start.localeCompare(b.period_start))
-      );
-    } else {
-      setUserCycleRecords((prev) =>
-        [...prev, localRecord].sort((a, b) => a.period_start.localeCompare(b.period_start))
-      );
-    }
-
-    showToast('Period recorded (local state)');
+    setDemoCycleRecords((prev) =>
+      [...prev, localRecord].sort((a, b) => a.period_start.localeCompare(b.period_start))
+    );
+    showToast('Period recorded in demo trial (in-memory)');
     return { success: true };
   };
 
-  // Edit an existing period log
   const editPeriod = async (
     id: string,
     updates: {
@@ -326,7 +346,6 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       notes?: string | null;
     }
   ): Promise<{ success: boolean; error?: string }> => {
-    // 1. Validate dates if start date changed
     if (updates.period_start) {
       const periodEnd = updates.period_end ?? null;
       const dateValidation = validatePeriodDates(updates.period_start, periodEnd);
@@ -334,16 +353,14 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
         return { success: false, error: dateValidation.error };
       }
 
-      // Check conflict excluding the edited record itself
-      const recordsToCheck = demoMode ? sampleCycleRecords : userCycleRecords;
+      const recordsToCheck = activeCycleRecords;
       const conflict = hasDateConflict(updates.period_start, periodEnd, recordsToCheck, id);
       if (conflict.hasConflict) {
         return { success: false, error: conflict.reason };
       }
     }
 
-    // 2. Persist update in Supabase if authenticated and not demo
-    if (user && !demoMode) {
+    if (user && !isDemoMode) {
       try {
         const updated = await updateCycleRecord(supabase, id, user.id, updates);
         setUserCycleRecords((prev) =>
@@ -359,8 +376,8 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
     }
 
-    // 3. Local update in demo mode
-    const updater = (prev: CycleRecord[]) =>
+    // Demo mode local update
+    setDemoCycleRecords((prev) =>
       prev
         .map((r) => {
           if (r.id !== id) return r;
@@ -372,21 +389,14 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
             updated_at: new Date().toISOString(),
           };
         })
-        .sort((a, b) => a.period_start.localeCompare(b.period_start));
-
-    if (demoMode) {
-      setSampleCycleRecords(updater);
-    } else {
-      setUserCycleRecords(updater);
-    }
-
-    showToast('Period record updated');
+        .sort((a, b) => a.period_start.localeCompare(b.period_start))
+    );
+    showToast('Period updated in demo trial');
     return { success: true };
   };
 
-  // Delete an existing period log
   const deletePeriod = async (id: string): Promise<{ success: boolean; error?: string }> => {
-    if (user && !demoMode) {
+    if (user && !isDemoMode) {
       try {
         await deleteCycleRecord(supabase, id, user.id);
         setUserCycleRecords((prev) => prev.filter((r) => r.id !== id));
@@ -398,62 +408,191 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
     }
 
-    if (demoMode) {
-      setSampleCycleRecords((prev) => prev.filter((r) => r.id !== id));
-    } else {
-      setUserCycleRecords((prev) => prev.filter((r) => r.id !== id));
-    }
-
-    showToast('Period record removed');
+    setDemoCycleRecords((prev) => prev.filter((r) => r.id !== id));
+    showToast('Period removed in demo trial');
     return { success: true };
   };
 
-  // Daily symptom log handlers
-  const addLogEntry = (newEntryData: Omit<DailyLogEntry, 'id' | 'createdAt'>) => {
-    const newEntry: DailyLogEntry = {
-      ...newEntryData,
-      id: `session-log-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      isPrototypeSample: false,
+  // -------------------------------------------------------------
+  // Daily Wellness Tracking Operations (Phase 4)
+  // -------------------------------------------------------------
+  const saveDailyWellness = async (input: UpsertDailyLogInput): Promise<{ success: boolean; error?: string }> => {
+    if (!input.log_date) {
+      return { success: false, error: 'Please specify a logging date.' };
+    }
+
+    if (user && !isDemoMode) {
+      try {
+        const saved = await upsertDailyLog(supabase, user.id, input);
+        setUserDailyLogs((prev) => {
+          const filtered = prev.filter((l) => l.log_date !== input.log_date);
+          return [saved, ...filtered].sort((a, b) => b.log_date.localeCompare(a.log_date));
+        });
+        showToast(`Daily wellness saved for ${input.log_date}`);
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to save daily wellness log';
+        return { success: false, error: msg };
+      }
+    }
+
+    // In demo mode: local in-memory update
+    const demoLog: DailyLogRecord = {
+      id: `demo-log-${Date.now()}`,
+      user_id: 'demo-visitor-trial',
+      log_date: input.log_date,
+      moods: input.moods || [],
+      sleep_duration_minutes: input.sleep_duration_minutes ?? null,
+      sleep_quality: input.sleep_quality ?? null,
+      energy_level: input.energy_level ?? null,
+      intimacy_logged: Boolean(input.intimacy_logged),
+      intimacy_notes: input.intimacy_notes?.trim() || null,
+      notes: input.notes?.trim() || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      symptoms: (input.symptoms || []).map((s, idx) => ({
+        id: `demo-symp-${Date.now()}-${idx}`,
+        daily_log_id: `demo-log-${Date.now()}`,
+        user_id: 'demo-visitor-trial',
+        symptom_name: s.symptom_name,
+        severity: s.severity,
+        notes: s.notes || null,
+      })),
     };
 
-    setEntries((prev) => {
-      const filtered = prev.filter((item) => item.date !== newEntry.date);
-      return [newEntry, ...filtered];
+    setDemoDailyLogs((prev) => {
+      const filtered = prev.filter((l) => l.log_date !== input.log_date);
+      return [demoLog, ...filtered].sort((a, b) => b.log_date.localeCompare(a.log_date));
     });
+    showToast(`Daily wellness recorded in demo trial for ${input.log_date}`);
+    return { success: true };
+  };
 
-    showToast(`Logged symptoms for ${newEntry.date} (session state)`);
+  const removeDailyWellness = async (logId: string): Promise<{ success: boolean; error?: string }> => {
+    if (user && !isDemoMode) {
+      try {
+        await deleteDailyLog(supabase, user.id, logId);
+        setUserDailyLogs((prev) => prev.filter((l) => l.id !== logId));
+        showToast('Daily log entry removed');
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to delete daily log';
+        return { success: false, error: msg };
+      }
+    }
+
+    setDemoDailyLogs((prev) => prev.filter((l) => l.id !== logId));
+    showToast('Daily entry removed in demo trial');
+    return { success: true };
+  };
+
+  const getDailyLog = useCallback(
+    (dateStr: string): DailyLogRecord | undefined => {
+      return activeDailyLogs.find((l) => l.log_date === dateStr);
+    },
+    [activeDailyLogs]
+  );
+
+  const addCustomSymptomName = async (name: string): Promise<void> => {
+    const trimmed = name.trim().toLowerCase();
+    if (!trimmed) return;
+
+    if (user && !isDemoMode) {
+      await addCustomSymptom(supabase, user.id, trimmed);
+      setCustomSymptomsList((prev) => Array.from(new Set([...prev, trimmed])));
+    } else {
+      setCustomSymptomsList((prev) => Array.from(new Set([...prev, trimmed])));
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Backward Compatibility Helpers (Mapping DailyLogRecord -> DailyLogEntry)
+  // -------------------------------------------------------------
+  const mappedLegacyEntries = useMemo<DailyLogEntry[]>(() => {
+    return activeDailyLogs.map((log) => {
+      // Find matching period flow for this date if recorded
+      const matchingPeriod = activeCycleRecords.find((p) => {
+        const start = p.period_start;
+        const end = p.period_end || p.period_start;
+        return log.log_date >= start && log.log_date <= end;
+      });
+
+      let flow: 'none' | 'spotting' | 'light' | 'medium' | 'heavy' = 'none';
+      if (matchingPeriod?.flow_intensity) {
+        flow = matchingPeriod.flow_intensity;
+      }
+
+      let legacyEnergy: EnergyLevel = 'moderate';
+      if (log.energy_level) {
+        if (log.energy_level <= 2) legacyEnergy = 'low';
+        else if (log.energy_level >= 4) legacyEnergy = 'high';
+      }
+
+      return {
+        id: log.id,
+        date: log.log_date,
+        flow,
+        symptoms: (log.symptoms || []).map((s) => s.symptom_name),
+        moods: log.moods,
+        sleepHours: log.sleep_duration_minutes ? Math.round((log.sleep_duration_minutes / 60) * 10) / 10 : undefined,
+        energy: legacyEnergy,
+        notes: log.notes || undefined,
+        isPrototypeSample: isDemoMode,
+        createdAt: log.created_at,
+      };
+    });
+  }, [activeDailyLogs, activeCycleRecords, isDemoMode]);
+
+  const addLogEntry = (legacyEntry: Omit<DailyLogEntry, 'id' | 'createdAt'>) => {
+    // Convert to saveDailyWellness
+    saveDailyWellness({
+      log_date: legacyEntry.date,
+      moods: legacyEntry.moods,
+      sleep_duration_minutes: legacyEntry.sleepHours ? Math.round(legacyEntry.sleepHours * 60) : null,
+      energy_level: legacyEntry.energy === 'low' ? 2 : legacyEntry.energy === 'high' ? 4 : 3,
+      notes: legacyEntry.notes || null,
+      symptoms: (legacyEntry.symptoms || []).map((s) => ({
+        symptom_name: s,
+        severity: 'moderate',
+      })),
+    });
   };
 
   const getEntryForDate = (date: string): DailyLogEntry | undefined => {
-    const activeEntries = demoMode ? entries : entries.filter((e) => !e.isPrototypeSample);
-    return activeEntries.find((entry) => entry.date === date);
+    return mappedLegacyEntries.find((e) => e.date === date);
   };
 
   const clearTemporaryData = () => {
-    setEntries([]);
-    showToast('All temporary session data cleared');
+    if (isDemoMode) {
+      setDemoCycleRecords([]);
+      setDemoDailyLogs([]);
+      showToast('Demo trial data cleared');
+    }
   };
 
   const updatePreferences = (newPrefs: Partial<UserPreferences>) => {
     setPreferences((prev) => ({ ...prev, ...newPrefs }));
-    showToast('Preferences updated (session only)');
+    showToast('Preferences updated');
   };
 
   return (
     <CycleDataContext.Provider
       value={{
-        entries: demoMode ? entries : entries.filter((e) => !e.isPrototypeSample),
-        preferences,
-        demoMode,
+        // Demo Trial status & controls
+        isDemoMode,
+        enterDemo,
+        exitDemo,
+        demoMode: isDemoMode,
+        setDemoMode: (enabled) => (enabled ? enterDemo() : exitDemo()),
+
+        // Toast feedback
         toastMessage,
-        addLogEntry,
-        getEntryForDate,
-        setDemoMode,
-        clearTemporaryData,
-        updatePreferences,
         showToast,
         hideToast,
+
+        // Preferences
+        preferences,
+        updatePreferences,
 
         // Cycle Tracking (Phase 3)
         cycleRecords: activeCycleRecords,
@@ -466,6 +605,22 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
         addPeriod,
         editPeriod,
         deletePeriod,
+
+        // Daily Wellness Tracking (Phase 4)
+        dailyLogs: activeDailyLogs,
+        isLoadingDailyLogs,
+        customSymptoms: customSymptomsList,
+        refreshDailyLogs: fetchUserDailyLogs,
+        saveDailyWellness,
+        removeDailyWellness,
+        getDailyLog,
+        addCustomSymptomName,
+
+        // Legacy compatibility
+        entries: mappedLegacyEntries,
+        addLogEntry,
+        getEntryForDate,
+        clearTemporaryData,
       }}
     >
       {children}

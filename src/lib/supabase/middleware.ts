@@ -51,14 +51,27 @@ export async function updateSession(request: NextRequest) {
 
   const isOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/onboarding/');
 
-  // Case 1: Unauthenticated user trying to access protected routes or onboarding
+  const isDemoMode = request.cookies.get('oviare_demo_mode')?.value === 'true';
+
+  // Case 1: Unauthenticated visitor
   if (!user) {
+    // If in explicit Demo Mode, allow access to preview screens (dashboard, calendar, log, insights)
+    // but disallow /profile and /onboarding which require a real authenticated account
+    if (isDemoMode && isProtectedRoute && pathname !== '/profile') {
+      return supabaseResponse;
+    }
+
     if (isProtectedRoute || isOnboardingRoute) {
       const redirectUrl = new URL('/login', request.url);
       redirectUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(redirectUrl);
     }
     return supabaseResponse;
+  }
+
+  // Clear demo cookie if an authenticated user session exists
+  if (isDemoMode) {
+    supabaseResponse.cookies.set('oviare_demo_mode', '', { path: '/', maxAge: 0 });
   }
 
   // Case 2: Authenticated user visiting public auth routes (login, signup, forgot-password)

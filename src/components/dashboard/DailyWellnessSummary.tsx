@@ -6,92 +6,120 @@ import { Card, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { useCycleData } from '@/context/CycleDataContext';
-import { HeartHandshake, Plus, Moon, Activity, Smile, Droplet } from 'lucide-react';
+import { HeartHandshake, Plus, Moon, Activity, Smile, Droplet, Star } from 'lucide-react';
 
 export const DailyWellnessSummary: React.FC = () => {
-  const { entries, getEntryForDate } = useCycleData();
+  const { getDailyLog, currentCycleDay, cycleRecords } = useCycleData();
 
   // Reference today date string
   const todayStr = '2026-10-01';
-  const todayEntry = getEntryForDate(todayStr);
+  const todayLog = getDailyLog(todayStr);
+
+  // Check if today is a recorded period day
+  const isPeriodToday = cycleRecords.some((r) => {
+    const start = r.period_start;
+    const end = r.period_end || r.period_start;
+    return todayStr >= start && todayStr <= end;
+  });
+
+  const subtitle = currentCycleDay !== null
+    ? `Thursday, October 1 • Cycle Day ${currentCycleDay}`
+    : 'Thursday, October 1 • Listening to your rhythm';
 
   return (
     <Card variant="default" padding="md">
       <CardHeader
         title="Today's Wellness"
-        subtitle="Thursday, October 1 • Day 24"
+        subtitle={subtitle}
         action={
           <Link href={`/log?date=${todayStr}`}>
             <Button
-              variant={todayEntry ? 'outline' : 'primary'}
+              variant={todayLog ? 'outline' : 'primary'}
               size="sm"
               leftIcon={<Plus className="w-3.5 h-3.5" />}
             >
-              {todayEntry ? 'Update today' : 'Log entry'}
+              {todayLog ? 'Update Today' : 'Log Entry'}
             </Button>
           </Link>
         }
       />
 
-      {todayEntry ? (
+      {todayLog ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Period Status */}
             <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
               <div className="flex items-center gap-1.5 text-xs text-oviareText-secondary">
                 <Droplet className="w-3.5 h-3.5 text-plum" />
-                <span>Flow</span>
+                <span>Period Flow</span>
               </div>
               <p className="font-medium text-sm text-oviareText-primary capitalize mt-1">
-                {todayEntry.flow}
+                {isPeriodToday ? 'Active bleeding' : 'None today'}
               </p>
             </div>
 
+            {/* Mood */}
             <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
               <div className="flex items-center gap-1.5 text-xs text-oviareText-secondary">
                 <Smile className="w-3.5 h-3.5 text-plum" />
                 <span>Mood</span>
               </div>
-              <p className="font-medium text-sm text-oviareText-primary capitalize mt-1">
-                {todayEntry.moods.length > 0
-                  ? todayEntry.moods.map((m) => m.replace('_', ' ')).join(', ')
+              <p className="font-medium text-sm text-oviareText-primary capitalize mt-1 truncate">
+                {todayLog.moods.length > 0
+                  ? todayLog.moods.map((m) => m.replace(/_/g, ' ')).join(', ')
                   : 'Balanced'}
               </p>
             </div>
 
+            {/* Sleep */}
             <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
               <div className="flex items-center gap-1.5 text-xs text-oviareText-secondary">
                 <Moon className="w-3.5 h-3.5 text-plum" />
                 <span>Sleep</span>
               </div>
               <p className="font-medium text-sm text-oviareText-primary mt-1">
-                {todayEntry.sleepHours ? `${todayEntry.sleepHours} hrs` : 'Not recorded'}
+                {todayLog.sleep_duration_minutes !== null
+                  ? `${Math.round((todayLog.sleep_duration_minutes / 60) * 10) / 10} hrs`
+                  : 'Not set'}
+                {todayLog.sleep_quality && (
+                  <span className="text-[11px] text-oviareText-secondary block capitalize font-normal">
+                    {todayLog.sleep_quality} quality
+                  </span>
+                )}
               </p>
             </div>
 
+            {/* Energy */}
             <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
               <div className="flex items-center gap-1.5 text-xs text-oviareText-secondary">
                 <Activity className="w-3.5 h-3.5 text-plum" />
                 <span>Energy</span>
               </div>
               <p className="font-medium text-sm text-oviareText-primary capitalize mt-1">
-                {todayEntry.energy || 'Moderate'}
+                {todayLog.energy_level !== null ? `${todayLog.energy_level} / 5` : 'Not set'}
               </p>
             </div>
           </div>
 
-          {todayEntry.symptoms.length > 0 && (
-            <div className="pt-2">
+          {todayLog.symptoms && todayLog.symptoms.length > 0 && (
+            <div className="pt-1">
               <span className="text-xs text-oviareText-secondary block mb-1.5 font-medium">
-                Noted Symptoms
+                Noted Symptoms ({todayLog.symptoms.length})
               </span>
               <div className="flex flex-wrap gap-1.5">
-                {todayEntry.symptoms.map((s) => (
-                  <Badge key={s} variant="mauve" size="sm">
-                    {s.replace('_', ' ')}
+                {todayLog.symptoms.map((s) => (
+                  <Badge key={s.symptom_name} variant="mauve" size="sm" className="capitalize">
+                    {s.symptom_name.replace(/_/g, ' ')} ({s.severity})
                   </Badge>
                 ))}
               </div>
             </div>
+          )}
+
+          {todayLog.notes && (
+            <p className="text-xs text-oviareText-secondary italic bg-ivory-50 p-2.5 rounded-xl border border-oviareBorder/60">
+              "{todayLog.notes}"
+            </p>
           )}
         </div>
       ) : (
@@ -105,7 +133,7 @@ export const DailyWellnessSummary: React.FC = () => {
                 No logs recorded yet for today
               </p>
               <p className="text-xs text-oviareText-secondary mt-0.5">
-                Take a quiet moment to record any physical or emotional changes.
+                Take a quiet moment to record any physical sensations or emotional reflections.
               </p>
             </div>
           </div>

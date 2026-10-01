@@ -5,14 +5,23 @@ import Link from 'next/link';
 import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { DailyLogEntry, CycleRecord } from '@/types';
-import { Droplet, Moon, Activity, Smile, Edit3, Calendar, Plus } from 'lucide-react';
+import { DailyLogRecord, CycleRecord } from '@/types';
+import {
+  Droplet,
+  Moon,
+  Activity,
+  Smile,
+  Edit3,
+  Calendar,
+  Lock,
+  Heart,
+} from 'lucide-react';
 
 interface DayDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   dateStr: string | null;
-  entry?: DailyLogEntry;
+  dailyLog?: DailyLogRecord | null;
   periodRecord?: CycleRecord | null;
   isPeriod?: boolean;
   isPredicted?: boolean;
@@ -26,7 +35,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
   isOpen,
   onClose,
   dateStr,
-  entry,
+  dailyLog,
   periodRecord,
   isPeriod,
   isPredicted,
@@ -47,6 +56,10 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
     timeZone: 'UTC',
   });
 
+  const sleepHours = dailyLog?.sleep_duration_minutes
+    ? Math.round((dailyLog.sleep_duration_minutes / 60) * 10) / 10
+    : null;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Day Overview" maxWidth="md">
       <div className="space-y-4">
@@ -66,7 +79,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
           </div>
         </div>
 
-        {/* Period Record Details if day is part of a period */}
+        {/* Period Record Details if day is part of a recorded period */}
         {periodRecord && (
           <div className="p-3.5 rounded-xl bg-plum/5 border border-plum/20 space-y-2">
             <div className="flex items-center justify-between">
@@ -117,8 +130,8 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
           </div>
         )}
 
-        {/* Logged daily symptoms if entry exists */}
-        {entry ? (
+        {/* Logged daily wellness entry */}
+        {dailyLog ? (
           <div className="space-y-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-oviareText-secondary block">
               Daily Wellness Check-in
@@ -127,74 +140,73 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
             <div className="grid grid-cols-2 gap-2.5">
               <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
                 <span className="text-[11px] text-oviareText-secondary flex items-center gap-1">
-                  <Droplet className="w-3 h-3 text-plum" /> Daily Flow
-                </span>
-                <span className="text-xs font-medium text-oviareText-primary capitalize mt-0.5 block">
-                  {entry.flow}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
-                <span className="text-[11px] text-oviareText-secondary flex items-center gap-1">
                   <Smile className="w-3 h-3 text-plum" /> Mood
                 </span>
-                <span className="text-xs font-medium text-oviareText-primary capitalize mt-0.5 block">
-                  {entry.moods.length > 0
-                    ? entry.moods.map((m) => m.replace('_', ' ')).join(', ')
+                <span className="text-xs font-medium text-oviareText-primary capitalize mt-0.5 block truncate">
+                  {dailyLog.moods.length > 0
+                    ? dailyLog.moods.map((m) => m.replace(/_/g, ' ')).join(', ')
                     : 'None recorded'}
                 </span>
               </div>
 
               <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
                 <span className="text-[11px] text-oviareText-secondary flex items-center gap-1">
-                  <Moon className="w-3 h-3 text-plum" /> Sleep
+                  <Moon className="w-3 h-3 text-plum" /> Sleep Rest
                 </span>
                 <span className="text-xs font-medium text-oviareText-primary mt-0.5 block">
-                  {entry.sleepHours ? `${entry.sleepHours} hours` : 'Not recorded'}
+                  {sleepHours !== null ? `${sleepHours} hrs` : 'Not recorded'}
+                  {dailyLog.sleep_quality && (
+                    <span className="text-[11px] text-oviareText-secondary capitalize block font-normal">
+                      {dailyLog.sleep_quality} quality
+                    </span>
+                  )}
                 </span>
               </div>
 
               <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
                 <span className="text-[11px] text-oviareText-secondary flex items-center gap-1">
-                  <Activity className="w-3 h-3 text-plum" /> Energy
+                  <Activity className="w-3 h-3 text-plum" /> Energy Vitality
                 </span>
                 <span className="text-xs font-medium text-oviareText-primary capitalize mt-0.5 block">
-                  {entry.energy || 'Not recorded'}
+                  {dailyLog.energy_level !== null ? `${dailyLog.energy_level} / 5` : 'Not recorded'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-ivory-100 border border-oviareBorder">
+                <span className="text-[11px] text-oviareText-secondary flex items-center gap-1">
+                  <Heart className="w-3 h-3 text-plum" /> Intimacy
+                </span>
+                <span className="text-xs font-medium text-oviareText-primary mt-0.5 block">
+                  {dailyLog.intimacy_logged ? 'Logged (Private)' : 'None recorded'}
                 </span>
               </div>
             </div>
 
-            {entry.symptoms.length > 0 && (
+            {dailyLog.symptoms && dailyLog.symptoms.length > 0 && (
               <div>
                 <span className="text-xs text-oviareText-secondary font-medium block mb-1.5">
-                  Logged Symptoms
+                  Logged Symptoms ({dailyLog.symptoms.length})
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {entry.symptoms.map((s) => (
-                    <Badge key={s} variant="mauve" size="sm">
-                      {s.replace('_', ' ')}
+                  {dailyLog.symptoms.map((s) => (
+                    <Badge key={s.symptom_name} variant="mauve" size="sm" className="capitalize">
+                      {s.symptom_name.replace(/_/g, ' ')} ({s.severity})
                     </Badge>
                   ))}
                 </div>
               </div>
             )}
 
-            {entry.notes && (
+            {dailyLog.notes && (
               <div className="p-3 rounded-xl bg-ivory-50 border border-oviareBorder text-xs text-oviareText-secondary italic">
-                "{entry.notes}"
+                "{dailyLog.notes}"
               </div>
-            )}
-
-            {entry.isPrototypeSample && (
-              <p className="text-[11px] text-oviareText-muted italic text-center pt-1">
-                This entry is demonstration sample data.
-              </p>
             )}
           </div>
         ) : !periodRecord ? (
           <div className="py-6 text-center text-xs text-oviareText-secondary">
             <Calendar className="w-8 h-8 text-mauve-dark mx-auto mb-2 opacity-60" />
-            <p>No period or symptoms logged for this date yet.</p>
+            <p>No period or wellness logs recorded for this date yet.</p>
           </div>
         ) : null}
 
@@ -226,7 +238,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                 size="sm"
                 leftIcon={<Edit3 className="w-3.5 h-3.5" />}
               >
-                {entry ? 'Edit Symptoms' : 'Log Symptoms'}
+                {dailyLog ? 'Edit Daily Log' : 'Log This Day'}
               </Button>
             </Link>
           </div>
