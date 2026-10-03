@@ -42,7 +42,7 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: '/icons/icon-192.svg',
+    icon: '/icons/icon-192.png',
     badge: '/icons/badge-72.svg',
     tag: data.tag,
     renotify: true,
@@ -90,3 +90,24 @@ self.addEventListener('notificationclick', (event) => {
       })
   );
 });
+
+/**
+ * Fetch listener to satisfy PWA criteria and pass network requests through
+ */
+self.addEventListener('fetch', (event) => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    fetch(event.request).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      return new Response('Offline', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'text/plain' },
+      });
+    })
+  );
+});
+

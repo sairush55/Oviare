@@ -7,6 +7,8 @@ import { MobileHeader } from './MobileHeader';
 import { MobileNav } from './MobileNav';
 import { DemoModeBanner } from './DemoModeBanner';
 import { InAppReminderBanner } from '../notifications/InAppReminderBanner';
+import { InstallAppBanner } from '../pwa/InstallAppBanner';
+import { InstallAppModal } from '../pwa/InstallAppModal';
 import { Toast } from '../ui/Toast';
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,6 +31,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <footer className="py-6 text-center text-xs text-oviareText-secondary">
           <p>Oviare • Understand your rhythm</p>
         </footer>
+        <InstallAppModal />
         <Toast />
       </div>
     );
@@ -41,6 +44,9 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       {/* Subtle In-App Reminder Banner */}
       <InAppReminderBanner />
+
+      {/* Mobile-first Install as App Banner */}
+      <InstallAppBanner />
 
       <div className="flex-1 flex flex-col md:flex-row">
         {/* Desktop Sidebar */}
@@ -57,6 +63,9 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       {/* Mobile Bottom Navigation */}
       <MobileNav />
+
+      {/* Install App Guided Modal */}
+      <InstallAppModal />
 
       {/* App-wide Toast feedback */}
       <Toast />

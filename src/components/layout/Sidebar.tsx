@@ -13,11 +13,13 @@ import {
   LogOut,
   Sparkles,
   UserPlus,
+  Download,
 } from 'lucide-react';
 import { Logo } from '../brand/Logo';
 import { MedicalDisclaimerBadge } from '../brand/MedicalDisclaimerBadge';
 import { useCycleData } from '@/context/CycleDataContext';
 import { useAuth } from '@/context/AuthContext';
+import { useInstallPrompt } from '@/context/InstallPromptContext';
 
 const NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -31,6 +33,7 @@ export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { isDemoMode, exitDemo } = useCycleData();
   const { user, profile, signOut } = useAuth();
+  const { isInstalled, promptInstall } = useInstallPrompt();
 
   return (
     <aside
@@ -138,6 +141,19 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
         ) : null}
+
+        {/* Install App Trigger if not already running standalone */}
+        {!isInstalled && (
+          <button
+            type="button"
+            onClick={promptInstall}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/60 text-plum border border-mauve-border text-xs font-medium transition-colors shadow-subtle"
+            title="Install Oviare as standalone app"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install App on Device</span>
+          </button>
+        )}
 
         {/* Security boundary badge */}
         <div className="px-2.5 py-1.5 rounded-xl bg-sage-subtle/50 border border-sage/20 text-[11px] leading-relaxed text-oviareText-secondary">

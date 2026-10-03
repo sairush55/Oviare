@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { CycleDataProvider } from '@/context/CycleDataContext';
 import { ReminderProvider } from '@/context/ReminderContext';
+import { InstallPromptProvider } from '@/context/InstallPromptContext';
 import { AppShell } from '@/components/layout/AppShell';
 
 export const metadata: Metadata = {
@@ -14,6 +15,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Oviare',
+  },
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: '/apple-touch-icon.png',
   },
 };
 
@@ -35,7 +40,9 @@ export default function RootLayout({
         <AuthProvider>
           <CycleDataProvider>
             <ReminderProvider>
-              <AppShell>{children}</AppShell>
+              <InstallPromptProvider>
+                <AppShell>{children}</AppShell>
+              </InstallPromptProvider>
             </ReminderProvider>
           </CycleDataProvider>
         </AuthProvider>

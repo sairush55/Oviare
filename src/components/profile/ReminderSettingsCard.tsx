@@ -20,8 +20,10 @@ import {
   HeartHandshake,
   Sparkles,
   Share,
+  Download,
 } from 'lucide-react';
 import { ReminderType } from '@/types';
+import { useInstallPrompt } from '@/context/InstallPromptContext';
 
 const COMMON_HOURS = [
   { value: '08:00', label: '8:00 AM (Morning)' },
@@ -43,6 +45,7 @@ export const ReminderSettingsCard: React.FC = () => {
     simulateNotificationPreview,
   } = useReminders();
   const { isDemoMode } = useCycleData();
+  const { isInstalled, openInstallModal, promptInstall } = useInstallPrompt();
 
   const [isUpdatingPush, setIsUpdatingPush] = useState(false);
   const [pushErrorMessage, setPushErrorMessage] = useState<string | null>(null);
@@ -319,7 +322,7 @@ export const ReminderSettingsCard: React.FC = () => {
 
         {/* Device-specific explanations */}
         {pushPermissionStatus === 'needs_install' && (
-          <div className="p-3 rounded-xl bg-mauve/20 border border-mauve/50 text-xs text-oviareText-primary space-y-1.5">
+          <div className="p-3.5 rounded-xl bg-mauve/20 border border-mauve/50 text-xs text-oviareText-primary space-y-2">
             <div className="flex items-center gap-1.5 font-medium text-plum">
               <Share className="w-3.5 h-3.5" />
               <span>Apple iOS / iPadOS Setup Required</span>
@@ -327,6 +330,18 @@ export const ReminderSettingsCard: React.FC = () => {
             <p className="text-[11px] text-oviareText-secondary leading-relaxed">
               Safari on iOS 16.4+ requires Web Push apps to be added to the Home Screen. Tap the <strong>Share button</strong> (⎋) in Safari and select <strong>&ldquo;Add to Home Screen&rdquo;</strong>, then launch Oviare from your Home Screen to enable push notifications.
             </p>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={openInstallModal}
+                className="text-xs bg-white text-plum border-mauve-border hover:bg-mauve/20"
+                leftIcon={<Download className="w-3.5 h-3.5" />}
+              >
+                View 3-Step iOS Guide
+              </Button>
+            </div>
           </div>
         )}
 
@@ -365,6 +380,19 @@ export const ReminderSettingsCard: React.FC = () => {
               leftIcon={<Bell className="w-3.5 h-3.5" />}
             >
               Enable Web Push Notifications
+            </Button>
+          )}
+
+          {!isInstalled && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={promptInstall}
+              className="text-xs bg-white text-plum border-mauve-border hover:bg-mauve/20"
+              leftIcon={<Download className="w-3.5 h-3.5" />}
+            >
+              Install App on Device
             </Button>
           )}
 
