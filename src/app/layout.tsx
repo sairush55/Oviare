@@ -2,12 +2,19 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { CycleDataProvider } from '@/context/CycleDataContext';
+import { ReminderProvider } from '@/context/ReminderContext';
 import { AppShell } from '@/components/layout/AppShell';
 
 export const metadata: Metadata = {
   title: 'Oviare — Understand your rhythm',
   description:
     'An intentional, calm, and private reproductive health and menstrual cycle tracking web application.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Oviare',
+  },
 };
 
 export const viewport: Viewport = {
@@ -27,7 +34,9 @@ export default function RootLayout({
       <body className="min-h-full font-sans bg-ivory text-oviareText-primary antialiased selection:bg-mauve selection:text-plum">
         <AuthProvider>
           <CycleDataProvider>
-            <AppShell>{children}</AppShell>
+            <ReminderProvider>
+              <AppShell>{children}</AppShell>
+            </ReminderProvider>
           </CycleDataProvider>
         </AuthProvider>
       </body>

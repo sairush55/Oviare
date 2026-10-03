@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileNav } from './MobileNav';
 import { DemoModeBanner } from './DemoModeBanner';
+import { InAppReminderBanner } from '../notifications/InAppReminderBanner';
 import { Toast } from '../ui/Toast';
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -37,6 +38,9 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
     <div className="min-h-screen flex flex-col bg-ivory text-oviareText-primary">
       {/* Persistent Demo Trial Banner */}
       <DemoModeBanner />
+
+      {/* Subtle In-App Reminder Banner */}
+      <InAppReminderBanner />
 
       <div className="flex-1 flex flex-col md:flex-row">
         {/* Desktop Sidebar */}

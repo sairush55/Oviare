@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useCycleData } from '@/context/CycleDataContext';
 import { createClient } from '@/lib/supabase/client';
 import { updateProfile } from '@/lib/supabase/profile';
+import { ReminderSettingsCard } from './ReminderSettingsCard';
 import {
   User,
   Sliders,
@@ -442,52 +443,8 @@ export const ProfileSettingsView: React.FC = () => {
         </form>
       </Card>
 
-      {/* 3. Notification Reminders */}
-      <Card variant="default" padding="md">
-        <CardHeader
-          title="Notification & Rhythm Cues"
-          subtitle="Gentle cues based on your cycle timing"
-        />
-
-        <div className="space-y-3">
-          <label className="flex items-center justify-between p-3 rounded-xl border border-oviareBorder hover:bg-ivory-50 cursor-pointer transition-colors">
-            <div className="space-y-0.5">
-              <span className="text-xs font-medium text-oviareText-primary block">
-                Estimated Period Window Alerts
-              </span>
-              <span className="text-[11px] text-oviareText-secondary block">
-                Receive a subtle cue 2 days prior to your estimated period start date.
-              </span>
-            </div>
-            <input
-              type="checkbox"
-              checked={remindersEnabled}
-              onChange={(e) => {
-                setRemindersEnabled(e.target.checked);
-                updatePreferences({ reminderNotifications: e.target.checked });
-              }}
-              className="w-4 h-4 rounded text-plum focus:ring-plum"
-            />
-          </label>
-
-          <label className="flex items-center justify-between p-3 rounded-xl border border-oviareBorder hover:bg-ivory-50 cursor-pointer transition-colors">
-            <div className="space-y-0.5">
-              <span className="text-xs font-medium text-oviareText-primary block">
-                Daily Evening Check-in Prompt
-              </span>
-              <span className="text-[11px] text-oviareText-secondary block">
-                Friendly prompt to log physical sensations and emotional state.
-              </span>
-            </div>
-            <input
-              type="checkbox"
-              defaultChecked={true}
-              onChange={() => showToast('Evening prompt preference updated')}
-              className="w-4 h-4 rounded text-plum focus:ring-plum"
-            />
-          </label>
-        </div>
-      </Card>
+      {/* 3. Notification & Smart Reminders */}
+      <ReminderSettingsCard />
 
       {/* 4. Account Security */}
       <Card variant="default" padding="md">

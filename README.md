@@ -318,9 +318,119 @@ npm run dev
 
 ---
 
-## 10. Project Phase Summary
+### `public.reminder_preferences` Table (Additional Phase 4)
+Stores user-specific reminder configurations, category toggles, and preferred local delivery times:
+- `id`: UUID Primary Key (`DEFAULT gen_random_uuid()`)
+- `user_id`: UUID (`REFERENCES auth.users(id) ON DELETE CASCADE`)
+- `master_enabled`: BOOLEAN NOT NULL (`DEFAULT FALSE`)
+- `wellness_reminder_enabled`: BOOLEAN NOT NULL (`DEFAULT FALSE`)
+- `period_logging_reminder_enabled`: BOOLEAN NOT NULL (`DEFAULT FALSE`)
+- `estimated_period_reminder_enabled`: BOOLEAN NOT NULL (`DEFAULT FALSE`)
+- `preferred_time`: TEXT NOT NULL (`DEFAULT '20:00'`)
+- `timezone`: TEXT NOT NULL (`DEFAULT 'UTC'`)
+- `estimated_period_lead_days`: INTEGER NOT NULL (`CHECK (estimated_period_lead_days IN (1, 2, 3))`)
+- `created_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- `updated_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- **Constraints**: `UNIQUE (user_id)`
+- **RLS Policies**: SELECT, INSERT, UPDATE, DELETE for `auth.uid() = user_id`.
+
+### `public.push_subscriptions` Table (Additional Phase 4)
+Stores browser Web Push endpoints and public keys for authenticated devices:
+- `id`: UUID Primary Key (`DEFAULT gen_random_uuid()`)
+- `user_id`: UUID (`REFERENCES auth.users(id) ON DELETE CASCADE`)
+- `endpoint`: TEXT NOT NULL (`UNIQUE`)
+- `p256dh`: TEXT NOT NULL
+- `auth`: TEXT NOT NULL
+- `user_agent`: TEXT NULL
+- `is_active`: BOOLEAN NOT NULL (`DEFAULT TRUE`)
+- `last_used_at`: Timestamptz NULL
+- `created_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- `updated_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- **RLS Policies**: SELECT, INSERT, UPDATE, DELETE for `auth.uid() = user_id`.
+
+### `public.reminder_delivery_logs` Table (Additional Phase 4)
+Idempotency tracking ensuring duplicate notifications are never sent on the same calendar date:
+- `id`: UUID Primary Key (`DEFAULT gen_random_uuid()`)
+- `user_id`: UUID (`REFERENCES auth.users(id) ON DELETE CASCADE`)
+- `reminder_type`: TEXT NOT NULL (`CHECK (reminder_type IN ('wellness', 'period_logging', 'estimated_period'))`)
+- `delivery_channel`: TEXT NOT NULL (`CHECK (delivery_channel IN ('push', 'in_app'))`)
+- `scheduled_for_date`: DATE NOT NULL
+- `delivered_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- `status`: TEXT NOT NULL (`CHECK (status IN ('delivered', 'failed', 'suppressed', 'dismissed'))`)
+- **Constraints**: `UNIQUE (user_id, reminder_type, scheduled_for_date, delivery_channel)`
+- **RLS Policies**: SELECT, INSERT, UPDATE for `auth.uid() = user_id`.
+
+SQL migration file: `supabase/migrations/20261003_notifications_and_reminders_schema.sql`.
+
+---
+
+## 7. Mobile Notifications & Smart Reminders Architecture
+
+### Principles & Privacy Guarantees
+1. **Discreet Lock-Screen Messaging**: Notifications intentionally conceal sensitive reproductive health details. Generic, neutral phrasing only:
+   - Daily Check-in: *"A little time for your Oviare check-in."*
+   - Period Logging: *"Would you like to update your Oviare log?"*
+   - Estimated Window: *"Your Oviare cycle reminder is coming up."*
+   - Never contains symptoms, moods, sleep metrics, intimacy records, or personal notes.
+2. **Strict Suppression Rules**:
+   - Master toggle (`master_enabled === false`) silences all delivery channels.
+   - Daily check-in reminder is automatically suppressed if a `daily_logs` record already exists for today.
+   - Period logging cue is suppressed if an active period is already recorded.
+   - Estimated period cue is suppressed if insufficient cycle data exists or if a period is already recorded.
+3. **Dual-Channel Delivery**:
+   - **In-App Reminders**: Embedded in the Dashboard (`UpcomingReminders.tsx`) and application shell (`InAppReminderBanner.tsx`). Always available as a zero-setup fallback.
+   - **Browser Web Push**: Supported via Service Worker (`public/sw.js`) and W3C Push API for supported browsers.
+
+### Browser & Device Compatibility
+- **Desktop & Android (Chrome, Edge, Firefox, Brave)**: Fully supported natively via Web Push API and background Service Worker.
+- **iOS & iPadOS (iOS 16.4+)**: Apple requires users to add the PWA to their Home Screen first (tap **Share ⎋ → "Add to Home Screen"**) before Web Push notifications can be granted and received. The Oviare settings UI clearly guides Apple users through this prerequisite.
+- **Unsupported Environments**: Displays friendly guidance; falls back seamlessly to in-app reminders.
+
+### Server Scheduler & Automated Delivery
+- **Route Handler**: `/api/reminders/send` (GET/POST)
+- **Vercel Cron**: Scheduled in `vercel.json` to execute hourly (`0 * * * *`).
+- **Authorization**: Protected via `Authorization: Bearer ${CRON_SECRET}`.
+- **Environment Variables Required**:
+  ```bash
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY=your-vapid-public-key
+  VAPID_PRIVATE_KEY=your-vapid-private-key
+  VAPID_SUBJECT=mailto:support@oviare.app
+  CRON_SECRET=your-random-cron-secret
+  ```
+
+---
+
+## 8. Setup & Development Commands
+
+```powershell
+# 1. Install dependencies
+npm install
+
+# 2. Run unit tests for cycle calculations & smart reminders
+npx.cmd tsx --test src/lib/cycle/__tests__/calculations.test.ts
+npx.cmd tsx --test src/lib/notifications/__tests__/evaluator.test.ts
+
+# 3. Run TypeScript type checking
+npm run typecheck
+
+# 4. Create optimized production build
+npm run build
+
+# 5. Start production server
+npm run start
+# Local server runs at http://localhost:3000
+
+# 6. Start development server
+npm run dev
+```
+
+---
+
+## 9. Project Phase Summary
 
 - **Phase 1 (Completed)**: UI design foundation, responsive AppShell, design tokens, navigation, mock views.
 - **Phase 2 (Completed)**: Supabase Auth integration, session management, onboarding, RLS-protected user profiles, security headers.
 - **Phase 3 (Completed)**: Persistent period logging, cycle calculations engine, 17 unit test suites, dynamic dashboard cycle ring & countdown, calendar month view with recorded/predicted periods, cycle history table with edit/delete confirmation, rate-limit troubleshooting.
 - **Phase 4 (Completed)**: Daily wellness tracking (symptoms with Mild/Moderate/Severe severity, multi-mood tracking, sleep duration & quality, 1–5 energy scale, optional private intimacy logging, custom symptoms), database schema & RLS migrations, real aggregated personal insights (frequency chart, cycle history chart, wellness stat cards), guaranteed clean new user accounts with zero mock data, and an isolated in-memory "Try Demo" experience.
+- **Additional Phase 4 (Completed)**: Mobile Notifications & Smart Reminders — privacy-first in-app reminders, Web Push service worker (`sw.js`), PWA manifest (`manifest.json`), customizable category controls (wellness, period logging, estimated period), preferred local time & timezone management, automated scheduled dispatch route (`/api/reminders/send`) with Vercel Cron, idempotency delivery logs, 11 reminder unit test suites, and strict Demo Mode isolation.
+

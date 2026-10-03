@@ -145,3 +145,68 @@ export interface CycleRecord {
 
 export type CreateCycleRecordInput = Omit<CycleRecord, 'id' | 'created_at' | 'updated_at'>;
 export type UpdateCycleRecordInput = Partial<Omit<CycleRecord, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+// -------------------------------------------------------------
+// Additional Phase 4: Reminders & Notification Types
+// -------------------------------------------------------------
+
+export type ReminderType = 'wellness' | 'period_logging' | 'estimated_period';
+export type ReminderChannel = 'push' | 'in_app';
+
+export interface ReminderPreferences {
+  id?: string;
+  user_id?: string;
+  master_enabled: boolean;
+  wellness_reminder_enabled: boolean;
+  period_logging_reminder_enabled: boolean;
+  estimated_period_reminder_enabled: boolean;
+  preferred_time: string; // 'HH:mm' in 24hr format
+  timezone: string;
+  estimated_period_lead_days: 1 | 2 | 3;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type UpdateReminderPreferencesInput = Partial<
+  Omit<ReminderPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+>;
+
+export interface PushSubscriptionRecord {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent?: string | null;
+  is_active: boolean;
+  last_used_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePushSubscriptionInput {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent?: string | null;
+}
+
+export interface InAppReminderItem {
+  id: string;
+  type: ReminderType;
+  title: string;
+  description: string;
+  timingLabel: string;
+  actionUrl: string;
+  actionLabel: string;
+  isCompleted?: boolean;
+  isDismissed?: boolean;
+}
+
+export type NotificationPermissionState =
+  | 'default'
+  | 'granted'
+  | 'denied'
+  | 'unsupported'
+  | 'needs_install'; // For iOS Safari requiring Home Screen PWA
+
