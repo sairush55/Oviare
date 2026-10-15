@@ -17,14 +17,14 @@ const mockLogs: DailyLogRecord[] = [
     id: 'log-1',
     user_id: 'user-1',
     log_date: '2026-10-01',
-    moods: ['happy', 'energetic'],
+    moods: ['happy', 'balanced'],
     sleep_duration_minutes: 480, // 8.0 hrs
     sleep_quality: 'good',
     energy_level: 4,
     intimacy_logged: true,
     symptoms: [
-      { symptom_name: 'headache', severity: 'moderate' },
-      { symptom_name: 'cramps', severity: 'severe' },
+      { id: 's1', daily_log_id: 'log-1', user_id: 'user-1', symptom_name: 'headache', severity: 'moderate' },
+      { id: 's2', daily_log_id: 'log-1', user_id: 'user-1', symptom_name: 'cramps', severity: 'severe' },
     ],
     notes: 'Feeling productive',
     created_at: '2026-10-01T08:00:00Z',
@@ -40,8 +40,8 @@ const mockLogs: DailyLogRecord[] = [
     energy_level: 3,
     intimacy_logged: false,
     symptoms: [
-      { symptom_name: 'cramps', severity: 'mild' },
-      { symptom_name: 'bloating', severity: 'mild' },
+      { id: 's3', daily_log_id: 'log-2', user_id: 'user-1', symptom_name: 'cramps', severity: 'mild' },
+      { id: 's4', daily_log_id: 'log-2', user_id: 'user-1', symptom_name: 'bloating', severity: 'mild' },
     ],
     notes: null,
     created_at: '2026-09-30T08:00:00Z',
@@ -51,13 +51,13 @@ const mockLogs: DailyLogRecord[] = [
     id: 'log-3',
     user_id: 'user-1',
     log_date: '2026-09-29',
-    moods: ['tired'],
+    moods: ['low_energy'],
     sleep_duration_minutes: 360, // 6.0 hrs
     sleep_quality: 'poor',
     energy_level: 2,
     intimacy_logged: false,
     symptoms: [
-      { symptom_name: 'fatigue', severity: 'severe' },
+      { id: 's5', daily_log_id: 'log-3', user_id: 'user-1', symptom_name: 'fatigue', severity: 'severe' },
     ],
     notes: null,
     created_at: '2026-09-29T08:00:00Z',
@@ -139,7 +139,7 @@ describe('Phase 5: Advanced Personal Insights Engine', () => {
 
     it('calculates counts and percentage of total mood occurrences', () => {
       const moods = calculateMoodInsights(mockLogs);
-      // Moods: happy (1), energetic (1), calm (1), tired (1) -> total 4 moods, 25% each
+      // Moods: happy (1), balanced (1), calm (1), low_energy (1) -> total 4 moods, 25% each
       assert.strictEqual(moods.length, 4);
       for (const m of moods) {
         assert.strictEqual(m.count, 1);
@@ -209,12 +209,12 @@ describe('Phase 5: Advanced Personal Insights Engine', () => {
           id: 'log-prior-1',
           user_id: 'user-1',
           log_date: '2026-09-28',
-          moods: ['tired'],
+          moods: ['low_energy'],
           sleep_duration_minutes: 360,
           sleep_quality: 'poor',
           energy_level: 2,
           intimacy_logged: false,
-          symptoms: [{ symptom_name: 'bloating', severity: 'severe' }],
+          symptoms: [{ id: 'sp1', daily_log_id: 'log-prior-1', user_id: 'user-1', symptom_name: 'bloating', severity: 'severe' }],
           notes: null,
           created_at: '2026-09-28T08:00:00Z',
           updated_at: '2026-09-28T08:00:00Z',
@@ -228,7 +228,7 @@ describe('Phase 5: Advanced Personal Insights Engine', () => {
           sleep_quality: 'fair',
           energy_level: 3,
           intimacy_logged: false,
-          symptoms: [{ symptom_name: 'bloating', severity: 'moderate' }],
+          symptoms: [{ id: 'sp2', daily_log_id: 'log-prior-2', user_id: 'user-1', symptom_name: 'bloating', severity: 'moderate' }],
           notes: null,
           created_at: '2026-09-27T08:00:00Z',
           updated_at: '2026-09-27T08:00:00Z',

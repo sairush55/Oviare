@@ -9,6 +9,8 @@ import { DemoModeBanner } from './DemoModeBanner';
 import { InAppReminderBanner } from '../notifications/InAppReminderBanner';
 import { InstallAppBanner } from '../pwa/InstallAppBanner';
 import { InstallAppModal } from '../pwa/InstallAppModal';
+import { ConnectivityBanner } from '../ui/ConnectivityBanner';
+import { ServiceWorkerRegister } from '../pwa/ServiceWorkerRegister';
 import { Toast } from '../ui/Toast';
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -25,6 +27,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
   if (isAuthOrOnboarding) {
     return (
       <div className="min-h-screen bg-ivory text-oviareText-primary flex flex-col justify-between">
+        <ConnectivityBanner />
         <main className="flex-1 flex flex-col justify-center py-8 px-4 sm:px-6 max-w-lg mx-auto w-full">
           {children}
         </main>
@@ -32,6 +35,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
           <p>Oviare • Understand your rhythm</p>
         </footer>
         <InstallAppModal />
+        <ServiceWorkerRegister />
         <Toast />
       </div>
     );
@@ -39,6 +43,9 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   return (
     <div className="min-h-screen flex flex-col bg-ivory text-oviareText-primary">
+      {/* Real-time Connectivity Status Banner */}
+      <ConnectivityBanner />
+
       {/* Persistent Demo Trial Banner */}
       <DemoModeBanner />
 
@@ -66,6 +73,9 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       {/* Install App Guided Modal */}
       <InstallAppModal />
+
+      {/* Service Worker Lifecycle Controller */}
+      <ServiceWorkerRegister />
 
       {/* App-wide Toast feedback */}
       <Toast />

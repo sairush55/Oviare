@@ -118,6 +118,13 @@ export const QuickLogForm: React.FC = () => {
       return;
     }
 
+    if (!isDemoMode && typeof navigator !== 'undefined' && !navigator.onLine) {
+      setErrorMessage(
+        'You are currently offline. Your entries are safely preserved in memory. Reconnect to the internet and click Retry Save.'
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const res = await saveDailyWellness({
@@ -142,7 +149,14 @@ export const QuickLogForm: React.FC = () => {
         setErrorMessage(res.error || 'Failed to save daily wellness entry.');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      const isNetwork =
+        (typeof navigator !== 'undefined' && !navigator.onLine) ||
+        (err instanceof Error && /network|fetch|failed to fetch|offline/i.test(err.message));
+      const msg = isNetwork
+        ? 'Unable to reach the server. You appear to be offline. Your entries remain safely preserved in memory—reconnect and try again.'
+        : err instanceof Error
+        ? err.message
+        : 'An unexpected error occurred';
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
@@ -195,9 +209,18 @@ export const QuickLogForm: React.FC = () => {
         )}
 
         {errorMessage && (
-          <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="self-end sm:self-auto px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? 'Saving...' : 'Retry Save'}
+            </button>
           </div>
         )}
 

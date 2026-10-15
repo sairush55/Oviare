@@ -2,18 +2,44 @@
 
 import React from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { CycleLengthChart } from '@/components/insights/CycleLengthChart';
-import { SymptomFrequencyChart } from '@/components/insights/SymptomFrequencyChart';
 import { WellnessSummaryCards } from '@/components/insights/WellnessSummaryCards';
-import { AdvancedInsightsView } from '@/components/insights/AdvancedInsightsView';
 import { EducationalInsightList } from '@/components/insights/EducationalInsightList';
 import { useCycleData } from '@/context/CycleDataContext';
 import { BarChart2, PlusCircle, Activity, Sparkles, ShieldAlert, LogOut } from 'lucide-react';
+
+const ChartSkeleton: React.FC = () => (
+  <div className="h-64 rounded-2xl bg-white border border-oviareBorder p-6 flex flex-col justify-between animate-pulse shadow-subtle">
+    <div className="space-y-2">
+      <div className="h-4 bg-oviareBorder/60 rounded w-1/3" />
+      <div className="h-3 bg-oviareBorder/30 rounded w-1/2" />
+    </div>
+    <div className="h-32 bg-ivory-100/70 rounded-xl flex items-center justify-center">
+      <span className="text-xs text-oviareText-muted">Loading visualization...</span>
+    </div>
+    <div className="h-3 bg-oviareBorder/40 rounded w-2/5" />
+  </div>
+);
+
+const CycleLengthChart = dynamic(
+  () => import('@/components/insights/CycleLengthChart').then((mod) => mod.CycleLengthChart),
+  { loading: () => <ChartSkeleton />, ssr: false }
+);
+
+const SymptomFrequencyChart = dynamic(
+  () => import('@/components/insights/SymptomFrequencyChart').then((mod) => mod.SymptomFrequencyChart),
+  { loading: () => <ChartSkeleton />, ssr: false }
+);
+
+const AdvancedInsightsView = dynamic(
+  () => import('@/components/insights/AdvancedInsightsView').then((mod) => mod.AdvancedInsightsView),
+  { loading: () => <ChartSkeleton />, ssr: false }
+);
 
 export default function InsightsPage() {
   const {

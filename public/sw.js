@@ -1,14 +1,170 @@
 /**
- * Oviare Service Worker
- * Handles Web Push notifications and notification interactions with privacy-first boundaries.
+ * Oviare Service Worker (Phase 6: PWA, Push Notifications & Safe Offline Caching)
+ * 
+ * Strict Privacy Guarantees:
+ * - Never caches Supabase API calls, auth tokens, or personal health records.
+ * - Never caches internal API routes (/api/*) or auth callbacks (/auth/*).
+ * - Caches only non-sensitive public assets, icons, scripts, and an offline fallback page.
+ * - Full backward compatibility with Web Push notifications and notification clicks.
  */
 
+const CACHE_NAME = 'oviare-cache-v2';
+const OFFLINE_FALLBACK_PAGE = '/offline.html';
+
+// Non-sensitive public assets precached on service worker installation
+const PRECACHE_ASSETS = [
+  OFFLINE_FALLBACK_PAGE,
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-192.svg',
+  '/icons/icon-512.svg',
+  '/icons/badge-72.svg',
+  '/apple-touch-icon.png',
+];
+
+/**
+ * Service Worker Installation: Precache offline shell & static icons
+ */
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
+      .then(() => self.skipWaiting())
+      .catch((err) => {
+        console.warn('Oviare SW: Precaching non-sensitive assets failed:', err);
+        return self.skipWaiting();
+      })
+  );
 });
 
+/**
+ * Service Worker Activation: Purge outdated caches and claim clients immediately
+ */
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames.map((name) => {
+            if (name !== CACHE_NAME) {
+              return caches.delete(name);
+            }
+          })
+        )
+      )
+      .then(() => self.clients.claim())
+  );
+});
+
+/**
+ * Identifies sensitive, non-cacheable, or bypass requests.
+ * Health records, tokens, Supabase endpoints, and API mutations MUST NEVER be cached.
+ */
+function isSensitiveOrBypassRequest(request, url) {
+  // Non-GET requests (POST, PUT, DELETE, etc.) must never be intercepted by cache
+  if (request.method !== 'GET') return true;
+
+  // Supabase Database & Auth API: NEVER CACHE IN SERVICE WORKER
+  if (url.hostname.includes('supabase.co')) return true;
+
+  // Internal API routes (e.g. /api/user/export, /api/user/delete, /api/reminders/send): NEVER CACHE
+  if (url.pathname.startsWith('/api/')) return true;
+
+  // Auth callback and exchange routes: NEVER CACHE
+  if (url.pathname.startsWith('/auth/')) return true;
+
+  // Requests carrying explicit authorization headers: NEVER CACHE
+  if (request.headers.get('authorization')) return true;
+
+  return false;
+}
+
+/**
+ * Fetch Handler:
+ * - Passes through sensitive requests directly to the network.
+ * - Serves immutable static assets (/_next/static/, icons) via Cache-First.
+ * - Handles page navigations via Network-First, falling back to /offline.html when disconnected.
+ */
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  // 1. Immediately pass through all sensitive requests without caching
+  if (isSensitiveOrBypassRequest(request, url)) {
+    return;
+  }
+
+  // 2. Navigation requests (HTML page loads)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .catch(async () => {
+          // If offline or network failed, return the branded offline fallback page
+          const cache = await caches.open(CACHE_NAME);
+          const cachedFallback = await cache.match(OFFLINE_FALLBACK_PAGE);
+          return (
+            cachedFallback ||
+            new Response('Offline - Reconnect to continue using Oviare.', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'text/plain' },
+            })
+          );
+        })
+    );
+    return;
+  }
+
+  // 3. Static Assets: Next.js immutable bundles, fonts, icons, manifest
+  const isStaticAsset =
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname === '/manifest.json' ||
+    url.pathname === OFFLINE_FALLBACK_PAGE;
+
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(request).then((networkResponse) => {
+          // Only cache valid 200 responses for static assets
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            networkResponse.type === 'basic'
+          ) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // 4. Default: Network with safe error handling
+  event.respondWith(
+    fetch(request).catch(async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      return new Response('Network unavailable', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'text/plain' },
+      });
+    })
+  );
 });
 
 /**
@@ -90,24 +246,3 @@ self.addEventListener('notificationclick', (event) => {
       })
   );
 });
-
-/**
- * Fetch listener to satisfy PWA criteria and pass network requests through
- */
-self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') return;
-
-  event.respondWith(
-    fetch(event.request).catch(async () => {
-      const cached = await caches.match(event.request);
-      if (cached) return cached;
-      return new Response('Offline', {
-        status: 503,
-        statusText: 'Service Unavailable',
-        headers: { 'Content-Type': 'text/plain' },
-      });
-    })
-  );
-});
-

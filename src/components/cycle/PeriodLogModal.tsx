@@ -27,7 +27,7 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
   initialRecord,
   defaultDate,
 }) => {
-  const { addPeriod, editPeriod, deletePeriod } = useCycleData();
+  const { addPeriod, editPeriod, deletePeriod, isDemoMode } = useCycleData();
 
   const isEditing = Boolean(initialRecord);
 
@@ -67,6 +67,10 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
 
   const handleDelete = async () => {
     if (!initialRecord) return;
+    if (!isDemoMode && typeof navigator !== 'undefined' && !navigator.onLine) {
+      setErrorMessage('You are currently offline. Deleting records requires an internet connection.');
+      return;
+    }
     setIsDeleting(true);
     setErrorMessage(null);
     try {
@@ -100,6 +104,11 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
       return;
     }
 
+    if (!isDemoMode && typeof navigator !== 'undefined' && !navigator.onLine) {
+      setErrorMessage('You are currently offline. Period records require an internet connection to sync.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       let result;
@@ -126,7 +135,14 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
         setErrorMessage(result.error || 'Failed to save period record.');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      const isNetwork =
+        (typeof navigator !== 'undefined' && !navigator.onLine) ||
+        (err instanceof Error && /network|fetch|failed to fetch|offline/i.test(err.message));
+      const msg = isNetwork
+        ? 'Network connection failed. You appear to be offline. Your period dates remain preserved—reconnect and try again.'
+        : err instanceof Error
+        ? err.message
+        : 'An unexpected error occurred';
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);

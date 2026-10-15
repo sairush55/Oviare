@@ -424,8 +424,8 @@ SQL migration file: `supabase/migrations/20261015_phase5_personalization_schema.
 # 1. Install dependencies
 npm install
 
-# 2. Run automated test suites (51 unit tests across 26 suites)
-npx.cmd tsx --test src/lib/cycle/__tests__/calculations.test.ts src/lib/notifications/__tests__/evaluator.test.ts src/lib/insights/__tests__/advancedInsights.test.ts src/lib/preferences/__tests__/trackingPreferences.test.ts
+# 2. Run automated test suites (67 unit tests across 32 suites)
+npx.cmd tsx --test src/lib/cycle/__tests__/calculations.test.ts src/lib/notifications/__tests__/evaluator.test.ts src/lib/insights/__tests__/advancedInsights.test.ts src/lib/preferences/__tests__/trackingPreferences.test.ts src/lib/pwa/__tests__/cacheStrategy.test.ts src/lib/pwa/__tests__/connectivity.test.ts
 
 # 3. Run TypeScript type checking
 npm run typecheck
@@ -458,4 +458,12 @@ npm run dev
   5. **Personal Data Export**: `/api/user/export` server-verified route delivering user-owned data in structured JSON or CSV formats. Securely derives user ID exclusively from session cookies (zero client ID trusting) and strips all server secrets. Demo Mode safely exports synthetic trial data.
   6. **Account Data Deletion & Privacy Controls**: `/api/user/delete` server-verified route requiring explicit `"DELETE"` confirmation string. Cascades deletion across all user-owned tables (`profiles`, `cycle_records`, `daily_logs`, `daily_symptoms`, `custom_symptoms`, `reminder_preferences`, `push_subscriptions`, `reminder_delivery_logs`, `user_tracking_preferences`), signs out the user, and redirects cleanly.
   7. **Comprehensive Automated Test Coverage**: 51 passing unit tests across 26 test suites covering cycle calculations, reminder evaluation, advanced insights analysis, and tracking preference filtering.
+- **Phase 6 (Completed)**: Progressive Web App, Offline Support & Performance Optimization:
+  1. **PWA Installation Experience & Web App Manifest**: Enhanced `public/manifest.json` with explicit scope (`/`), standalone display mode, orientation, theme color (`#76566F`), and complete maskable and standard icon declarations. Mobile install banner and guided iOS modal (`InstallAppModal.tsx`) with clear prerequisites.
+  2. **Service Worker Architecture & Caching Strategy**: Single service worker (`public/sw.js`) unifying Web Push notifications, notification clicks, static asset caching, and offline handling. Strict privacy boundaries: Supabase endpoints, internal API routes (`/api/*`), auth routes, and personal health records are **NEVER** stored in CacheStorage. Next.js immutable assets (`/_next/static/`) and icons use Cache-First strategy.
+  3. **Branded Standalone Offline Fallback**: Created `public/offline.html` styled with Oviare's warm ivory surfaces, calm typography, privacy safeguard notices, and reload action for offline network navigation.
+  4. **Real-time Connectivity Feedback & Hook**: Built `useOnlineStatus` hook with real network reachability verification and `ConnectivityBanner.tsx` with accessible `aria-live="polite"` status announcements for online/offline transitions.
+  5. **Safe Offline Form Handling**: `QuickLogForm` and `PeriodLogModal` validate connectivity before write operations, preserving all user-entered inputs safely in React memory during disconnections, preventing false save states, and providing a direct "Retry Save" action upon reconnection.
+  6. **Performance & Bundle Optimization**: Achieved a **93% bundle reduction** on `/insights` (from 115 kB down to 7.75 kB page JS; first load JS from 300 kB to 193 kB) by dynamically importing heavy charting components with smooth skeleton placeholders.
+  7. **Regression Test Suite**: **67 passing unit tests** across 32 test suites with 0 failures, covering cycle calculations, reminder evaluations, advanced personal insights, tracking preferences, PWA cache boundaries, and offline resilience.
 

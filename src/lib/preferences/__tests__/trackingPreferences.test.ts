@@ -45,12 +45,12 @@ describe('Phase 5: Tracking Preferences & Custom Categories', () => {
         id: 'hist-1',
         user_id: 'user-1',
         log_date: '2026-09-15',
-        moods: ['anxious', 'tired'],
+        moods: ['anxious', 'low_energy'],
         sleep_duration_minutes: 420,
         sleep_quality: 'fair',
         energy_level: 2,
         intimacy_logged: true,
-        symptoms: [{ symptom_name: 'headache', severity: 'moderate' }],
+        symptoms: [{ id: 's-hist', daily_log_id: 'hist-1', user_id: 'user-1', symptom_name: 'headache', severity: 'moderate' }],
         notes: 'Past check-in record',
         created_at: '2026-09-15T12:00:00Z',
         updated_at: '2026-09-15T12:00:00Z',
@@ -64,7 +64,7 @@ describe('Phase 5: Tracking Preferences & Custom Categories', () => {
       };
 
       // Data integrity assertion: The record itself retains all historical fields
-      assert.deepStrictEqual(historicalLog.moods, ['anxious', 'tired']);
+      assert.deepStrictEqual(historicalLog.moods, ['anxious', 'low_energy']);
       assert.strictEqual(historicalLog.intimacy_logged, true);
       assert.strictEqual(historicalLog.symptoms?.length, 1);
 
