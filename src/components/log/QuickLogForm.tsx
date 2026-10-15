@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -21,7 +22,9 @@ import {
   RotateCcw,
   Trash2,
   Lock,
+  Sliders,
 } from 'lucide-react';
+
 
 export const QuickLogForm: React.FC = () => {
   const router = useRouter();
@@ -33,6 +36,7 @@ export const QuickLogForm: React.FC = () => {
     customSymptoms,
     addCustomSymptomName,
     isDemoMode,
+    trackingPreferences,
   } = useCycleData();
 
   // Selected date defaults to query param or reference date (2026-10-01)
@@ -249,90 +253,124 @@ export const QuickLogForm: React.FC = () => {
         </Card>
 
         {/* Symptoms Selection Card */}
-        <Card variant="default" padding="md">
-          <SymptomTracker
-            symptoms={symptoms}
-            onChange={(symps) => {
-              setSymptoms(symps);
-              setHasSaved(false);
-            }}
-            customSymptoms={customSymptoms}
-            onAddCustomSymptom={addCustomSymptomName}
-          />
-        </Card>
+        {trackingPreferences.symptoms_enabled !== false && (
+          <Card variant="default" padding="md">
+            <SymptomTracker
+              symptoms={symptoms}
+              onChange={(symps) => {
+                setSymptoms(symps);
+                setHasSaved(false);
+              }}
+              customSymptoms={customSymptoms}
+              onAddCustomSymptom={addCustomSymptomName}
+            />
+          </Card>
+        )}
 
         {/* Mood Selection Card */}
-        <Card variant="default" padding="md">
-          <MoodTracker
-            selected={moods}
-            onChange={(m) => {
-              setMoods(m);
-              setHasSaved(false);
-            }}
-          />
-        </Card>
+        {trackingPreferences.mood_enabled !== false && (
+          <Card variant="default" padding="md">
+            <MoodTracker
+              selected={moods}
+              onChange={(m) => {
+                setMoods(m);
+                setHasSaved(false);
+              }}
+            />
+          </Card>
+        )}
 
         {/* Sleep and Quality Card */}
-        <Card variant="default" padding="md">
-          <SleepTracker
-            sleepMinutes={sleepMinutes}
-            sleepQuality={sleepQuality}
-            onSleepMinutesChange={(mins) => {
-              setSleepMinutes(mins);
-              setHasSaved(false);
-            }}
-            onSleepQualityChange={(q) => {
-              setSleepQuality(q);
-              setHasSaved(false);
-            }}
-          />
-        </Card>
+        {trackingPreferences.sleep_enabled !== false && (
+          <Card variant="default" padding="md">
+            <SleepTracker
+              sleepMinutes={sleepMinutes}
+              sleepQuality={sleepQuality}
+              onSleepMinutesChange={(mins) => {
+                setSleepMinutes(mins);
+                setHasSaved(false);
+              }}
+              onSleepQualityChange={(q) => {
+                setSleepQuality(q);
+                setHasSaved(false);
+              }}
+            />
+          </Card>
+        )}
 
         {/* Energy Scale Card */}
-        <Card variant="default" padding="md">
-          <EnergyTracker
-            energyLevel={energyLevel}
-            onChange={(lvl) => {
-              setEnergyLevel(lvl);
-              setHasSaved(false);
-            }}
-          />
-        </Card>
+        {trackingPreferences.energy_enabled !== false && (
+          <Card variant="default" padding="md">
+            <EnergyTracker
+              energyLevel={energyLevel}
+              onChange={(lvl) => {
+                setEnergyLevel(lvl);
+                setHasSaved(false);
+              }}
+            />
+          </Card>
+        )}
 
         {/* Optional Intimacy Tracker */}
-        <IntimacyTracker
-          intimacyLogged={intimacyLogged}
-          intimacyNotes={intimacyNotes}
-          onIntimacyLoggedChange={(logged) => {
-            setIntimacyLogged(logged);
-            setHasSaved(false);
-          }}
-          onIntimacyNotesChange={(note) => {
-            setIntimacyNotes(note);
-            setHasSaved(false);
-          }}
-        />
-
-        {/* Notes Card */}
-        <Card variant="default" padding="md">
-          <label
-            htmlFor="log-notes"
-            className="block text-xs font-semibold uppercase tracking-wider text-oviareText-secondary mb-1.5"
-          >
-            Gentle Notes (Optional)
-          </label>
-          <textarea
-            id="log-notes"
-            rows={3}
-            value={notes}
-            onChange={(e) => {
-              setNotes(e.target.value);
+        {trackingPreferences.intimacy_enabled && (
+          <IntimacyTracker
+            intimacyLogged={intimacyLogged}
+            intimacyNotes={intimacyNotes}
+            onIntimacyLoggedChange={(logged) => {
+              setIntimacyLogged(logged);
               setHasSaved(false);
             }}
-            placeholder="Subtle bodily cues, activities, hydration, or reflections..."
-            className="w-full p-3 rounded-xl border border-oviareBorder bg-white text-xs text-oviareText-primary placeholder:text-oviareText-muted focus-visible:outline-plum resize-none leading-relaxed"
+            onIntimacyNotesChange={(note) => {
+              setIntimacyNotes(note);
+              setHasSaved(false);
+            }}
           />
-        </Card>
+        )}
+
+        {/* Notes Card */}
+        {trackingPreferences.notes_enabled !== false && (
+          <Card variant="default" padding="md">
+            <label
+              htmlFor="log-notes"
+              className="block text-xs font-semibold uppercase tracking-wider text-oviareText-secondary mb-1.5"
+            >
+              Gentle Notes (Optional)
+            </label>
+            <textarea
+              id="log-notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                setHasSaved(false);
+              }}
+              placeholder="Subtle bodily cues, activities, hydration, or reflections..."
+              className="w-full p-3 rounded-xl border border-oviareBorder bg-white text-xs text-oviareText-primary placeholder:text-oviareText-muted focus-visible:outline-plum resize-none leading-relaxed"
+            />
+          </Card>
+        )}
+
+        {/* Category Personalization Hint */}
+        {(!trackingPreferences.symptoms_enabled ||
+          !trackingPreferences.mood_enabled ||
+          !trackingPreferences.sleep_enabled ||
+          !trackingPreferences.energy_enabled ||
+          !trackingPreferences.notes_enabled ||
+          !trackingPreferences.intimacy_enabled) && (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-ivory-100/70 border border-oviareBorder text-[11px] text-oviareText-secondary">
+            <span className="flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-plum" />
+              Certain wellness categories are hidden based on your tracking preferences.
+            </span>
+            <Link
+              href="/profile"
+              className="font-medium text-plum hover:underline ml-2 shrink-0"
+            >
+              Personalize &rarr;
+            </Link>
+          </div>
+        )}
+
 
         {/* Actions */}
         <div className="flex items-center justify-between gap-4 pt-2">

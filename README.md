@@ -357,10 +357,28 @@ Idempotency tracking ensuring duplicate notifications are never sent on the same
 - `scheduled_for_date`: DATE NOT NULL
 - `delivered_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
 - `status`: TEXT NOT NULL (`CHECK (status IN ('delivered', 'failed', 'suppressed', 'dismissed'))`)
-- **Constraints**: `UNIQUE (user_id, reminder_type, scheduled_for_date, delivery_channel)`
-- **RLS Policies**: SELECT, INSERT, UPDATE for `auth.uid() = user_id`.
+### `public.user_tracking_preferences` Table (Phase 5)
+Personalized tracking category preferences per user:
+- `id`: UUID Primary Key (`DEFAULT gen_random_uuid()`)
+- `user_id`: UUID (`REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE`)
+- `symptoms_enabled`: BOOLEAN NOT NULL (`DEFAULT true`)
+- `mood_enabled`: BOOLEAN NOT NULL (`DEFAULT true`)
+- `sleep_enabled`: BOOLEAN NOT NULL (`DEFAULT true`)
+- `energy_enabled`: BOOLEAN NOT NULL (`DEFAULT true`)
+- `notes_enabled`: BOOLEAN NOT NULL (`DEFAULT true`)
+- `intimacy_enabled`: BOOLEAN NOT NULL (`DEFAULT false`)
+- `created_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- `updated_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- **RLS Policies**: SELECT, INSERT, UPDATE, DELETE for `auth.uid() = user_id`.
 
-SQL migration file: `supabase/migrations/20261003_notifications_and_reminders_schema.sql`.
+### Enhanced `public.custom_symptoms` Table (Phase 5)
+Extended to support custom symptoms and custom wellness categories:
+- `category_type`: TEXT NOT NULL (`DEFAULT 'symptom'`, `CHECK (category_type IN ('symptom', 'wellness'))`)
+- `is_active`: BOOLEAN NOT NULL (`DEFAULT true`)
+- `updated_at`: Timestamptz (`DEFAULT timezone('utc', now())`)
+- **RLS Policies**: SELECT, INSERT, UPDATE, DELETE for `auth.uid() = user_id`.
+
+SQL migration file: `supabase/migrations/20261015_phase5_personalization_schema.sql`.
 
 ---
 
@@ -406,9 +424,8 @@ SQL migration file: `supabase/migrations/20261003_notifications_and_reminders_sc
 # 1. Install dependencies
 npm install
 
-# 2. Run unit tests for cycle calculations & smart reminders
-npx.cmd tsx --test src/lib/cycle/__tests__/calculations.test.ts
-npx.cmd tsx --test src/lib/notifications/__tests__/evaluator.test.ts
+# 2. Run automated test suites (51 unit tests across 26 suites)
+npx.cmd tsx --test src/lib/cycle/__tests__/calculations.test.ts src/lib/notifications/__tests__/evaluator.test.ts src/lib/insights/__tests__/advancedInsights.test.ts src/lib/preferences/__tests__/trackingPreferences.test.ts
 
 # 3. Run TypeScript type checking
 npm run typecheck
@@ -433,4 +450,12 @@ npm run dev
 - **Phase 3 (Completed)**: Persistent period logging, cycle calculations engine, 17 unit test suites, dynamic dashboard cycle ring & countdown, calendar month view with recorded/predicted periods, cycle history table with edit/delete confirmation, rate-limit troubleshooting.
 - **Phase 4 (Completed)**: Daily wellness tracking (symptoms with Mild/Moderate/Severe severity, multi-mood tracking, sleep duration & quality, 1–5 energy scale, optional private intimacy logging, custom symptoms), database schema & RLS migrations, real aggregated personal insights (frequency chart, cycle history chart, wellness stat cards), guaranteed clean new user accounts with zero mock data, and an isolated in-memory "Try Demo" experience.
 - **Additional Phase 4 (Completed)**: Mobile Notifications & Smart Reminders — privacy-first in-app reminders, Web Push service worker (`sw.js`), PWA manifest (`manifest.json`), customizable category controls (wellness, period logging, estimated period), preferred local time & timezone management, automated scheduled dispatch route (`/api/reminders/send`) with Vercel Cron, idempotency delivery logs, 11 reminder unit test suites, and strict Demo Mode isolation.
+- **Phase 5 (Completed)**: Personalization, Advanced Insights & Data Management:
+  1. **Personalized Tracking Preferences**: Users can toggle Symptoms, Mood, Sleep, Energy, Daily Notes, and Intimacy in Settings. Category toggles dynamically show/hide input cards in the daily logging flow while non-destructively preserving all historical records. Preferences are stored in `public.user_tracking_preferences` with RLS.
+  2. **Custom Categories Management**: Extended `public.custom_symptoms` with `category_type` ('symptom' | 'wellness') and `is_active`. Users can create, rename, pause/enable, and delete custom symptoms and habits with modal confirmations. Custom categories remain completely isolated to the owner via RLS.
+  3. **Advanced Personal History & Insights**: Date range filtering across Last 30 Days, Last 90 Days, Last 6 Months, and All History; logging consistency percentage and streak tracking (current & longest); symptom occurrence counts and Mild/Moderate/Severe severity distributions; mood distribution breakdown; sleep duration and quality trends; 1–5 energy vitality averages; comparative period analysis against previous matching intervals; record count transparency; and informational boundary notices emphasizing that correlation does not establish medical causation.
+  4. **Calendar & Historical Data Improvements**: Enhanced Day Details modal with direct, one-click Edit and Delete actions for both period records and daily wellness entries with inline confirmations; explicit visual banners and badges distinguishing estimated algorithmic windows from actual recorded periods.
+  5. **Personal Data Export**: `/api/user/export` server-verified route delivering user-owned data in structured JSON or CSV formats. Securely derives user ID exclusively from session cookies (zero client ID trusting) and strips all server secrets. Demo Mode safely exports synthetic trial data.
+  6. **Account Data Deletion & Privacy Controls**: `/api/user/delete` server-verified route requiring explicit `"DELETE"` confirmation string. Cascades deletion across all user-owned tables (`profiles`, `cycle_records`, `daily_logs`, `daily_symptoms`, `custom_symptoms`, `reminder_preferences`, `push_subscriptions`, `reminder_delivery_logs`, `user_tracking_preferences`), signs out the user, and redirects cleanly.
+  7. **Comprehensive Automated Test Coverage**: 51 passing unit tests across 26 test suites covering cycle calculations, reminder evaluation, advanced insights analysis, and tracking preference filtering.
 

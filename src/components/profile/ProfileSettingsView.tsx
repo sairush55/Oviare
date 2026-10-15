@@ -11,6 +11,9 @@ import { useCycleData } from '@/context/CycleDataContext';
 import { createClient } from '@/lib/supabase/client';
 import { updateProfile } from '@/lib/supabase/profile';
 import { ReminderSettingsCard } from './ReminderSettingsCard';
+import { PersonalizationSettingsCard } from './PersonalizationSettingsCard';
+import { CustomCategoriesCard } from './CustomCategoriesCard';
+import { DataManagementCard } from './DataManagementCard';
 import {
   User,
   Sliders,
@@ -76,8 +79,6 @@ export const ProfileSettingsView: React.FC = () => {
   const [remindersEnabled, setRemindersEnabled] = useState(preferences.reminderNotifications);
   const [dataSharing, setDataSharing] = useState(preferences.dataSharingConsent);
 
-  // Clear confirmation modal state
-  const [showClearModal, setShowClearModal] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
 
   useEffect(() => {
@@ -159,35 +160,6 @@ export const ProfileSettingsView: React.FC = () => {
     } finally {
       setIsSendingReset(false);
     }
-  };
-
-  // Functional JSON export of profile and current session data
-  const handleExportData = () => {
-    const exportObject = {
-      product: 'Oviare',
-      exportTimestamp: new Date().toISOString(),
-      architecture: 'Phase 2 Supabase Integrated',
-      user: {
-        id: user?.id,
-        email: user?.email,
-      },
-      profile,
-      preferences,
-      temporarySessionEntriesCount: entries.length,
-      temporarySessionEntries: entries,
-    };
-
-    const blob = new Blob([JSON.stringify(exportObject, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `oviare-profile-export-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    showToast('Data exported as JSON file');
   };
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Member';
@@ -446,7 +418,13 @@ export const ProfileSettingsView: React.FC = () => {
       {/* 3. Notification & Smart Reminders */}
       <ReminderSettingsCard />
 
-      {/* 4. Account Security */}
+      {/* 4. Personalized Tracking Categories (Phase 5) */}
+      <PersonalizationSettingsCard />
+
+      {/* 5. Custom Tracking Categories (Phase 5) */}
+      <CustomCategoriesCard />
+
+      {/* 6. Account Security */}
       <Card variant="default" padding="md">
         <CardHeader
           title="Account Security"
@@ -498,7 +476,7 @@ export const ProfileSettingsView: React.FC = () => {
         </div>
       </Card>
 
-      {/* 5. Privacy & Data Boundaries */}
+      {/* 7. Privacy & Data Boundaries */}
       <Card variant="default" padding="md">
         <CardHeader
           title="Privacy & Data Boundaries"
@@ -515,20 +493,20 @@ export const ProfileSettingsView: React.FC = () => {
           <div className="p-3.5 rounded-xl bg-ivory-100 border border-oviareBorder space-y-2">
             <p className="text-oviareText-primary font-medium flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-plum" />
-              Phase 2 Profile Storage Architecture
+              Isolated PostgreSQL & Row Level Security
             </p>
             <p>
-              Your profile is stored in Supabase PostgreSQL protected with Row Level Security (RLS) policies tied directly to your authenticated UID (<code className="text-[11px] bg-white px-1.5 py-0.5 rounded border">{user?.id?.slice(0, 8)}...</code>). No unauthenticated or cross-account access is allowed.
+              All member records (profiles, menstrual periods, daily check-ins, custom categories, and reminder preferences) are stored in Supabase PostgreSQL protected with Row Level Security (RLS) tied strictly to your authenticated UID (<code className="text-[11px] bg-white px-1.5 py-0.5 rounded border">{user?.id?.slice(0, 8) || 'anonymous'}...</code>). No unauthenticated or cross-account data access is permitted.
             </p>
           </div>
 
           <div className="p-3.5 rounded-xl bg-white border border-oviareBorder space-y-2">
             <p className="text-oviareText-primary font-medium flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5 text-sage" />
-              Daily Log Data Architecture
+              Zero Third-Party Trackers
             </p>
             <p>
-              In Phase 2, daily symptom check-ins remain in client-side session state. Persistent database cycle tracking with clinical biomarkers is scheduled for Phase 3.
+              Oviare operates without advertising SDKs, marketing trackers, or third-party behavioral profiling. Your observations remain your sovereign property.
             </p>
           </div>
 
@@ -554,83 +532,8 @@ export const ProfileSettingsView: React.FC = () => {
         </div>
       </Card>
 
-      {/* 6. Data Controls */}
-      <Card variant="default" padding="md">
-        <CardHeader
-          title="Data Controls & Export"
-          subtitle="Manage your profile data and current session records"
-        />
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportData}
-            leftIcon={<Download className="w-3.5 h-3.5 text-sage" />}
-          >
-            Export All Data (JSON)
-          </Button>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowClearModal(true)}
-              className="text-oviareText-secondary hover:text-oviareText-primary"
-              leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-            >
-              Clear Session Logs
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled
-              title="Full account deletion scheduled for Phase 3"
-              className="text-oviareText-muted opacity-60 cursor-not-allowed"
-            >
-              Delete Account (Phase 3)
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Clear Confirmation Modal */}
-      <Modal
-        isOpen={showClearModal}
-        onClose={() => setShowClearModal(false)}
-        title="Clear Session Logs?"
-      >
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
-            <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-            <p>
-              This will remove all temporary log entries from your current browser session. Your authenticated profile and baseline settings in Supabase remain intact.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-oviareBorder">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowClearModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              className="bg-red-600 hover:bg-red-700"
-              onClick={() => {
-                clearTemporaryData();
-                setShowClearModal(false);
-              }}
-            >
-              Confirm Clear
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      {/* 8. Personal Data Portability & Account Erasure (Phase 5) */}
+      <DataManagementCard />
     </div>
   );
 };

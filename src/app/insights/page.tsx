@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { CycleLengthChart } from '@/components/insights/CycleLengthChart';
 import { SymptomFrequencyChart } from '@/components/insights/SymptomFrequencyChart';
 import { WellnessSummaryCards } from '@/components/insights/WellnessSummaryCards';
+import { AdvancedInsightsView } from '@/components/insights/AdvancedInsightsView';
 import { EducationalInsightList } from '@/components/insights/EducationalInsightList';
 import { useCycleData } from '@/context/CycleDataContext';
 import { BarChart2, PlusCircle, Activity, Sparkles, ShieldAlert, LogOut } from 'lucide-react';
@@ -136,6 +137,9 @@ export default function InsightsPage() {
 
           {/* Daily Wellness Summary Cards */}
           <WellnessSummaryCards />
+
+          {/* Phase 5: Advanced Personal Insights */}
+          <AdvancedInsightsView />
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

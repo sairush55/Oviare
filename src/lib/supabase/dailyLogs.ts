@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DailyLogRecord, DailySymptom, UpsertDailyLogInput } from '@/types';
+import { DailyLogRecord, DailySymptom, UpsertDailyLogInput, CustomCategoryItem } from '@/types';
 
 /**
  * Fetch all daily wellness logs for a user, ordered by date descending,
@@ -230,36 +230,147 @@ export async function deleteDailyLog(
 }
 
 /**
- * Get user custom symptoms
+ * Get user custom categories (full items including active state and type)
+ */
+export async function getCustomCategories(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<CustomCategoryItem[]> {
+  const { data, error } = await supabase
+    .from('custom_symptoms')
+    .select('id, user_id, symptom_name, category_type, is_active, created_at, updated_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+      return [];
+    }
+    console.error('Error fetching custom categories:', error.message);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    user_id: row.user_id,
+    symptom_name: row.symptom_name,
+    category_type: row.category_type || 'symptom',
+    is_active: row.is_active !== false,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }));
+}
+
+/**
+ * Get user custom symptom names (for backward compatibility, only active categories)
  */
 export async function getCustomSymptoms(
   supabase: SupabaseClient,
   userId: string
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('custom_symptoms')
-    .select('symptom_name')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    return [];
-  }
-
-  return (data || []).map((row: any) => row.symptom_name);
+  const categories = await getCustomCategories(supabase, userId);
+  return categories.filter((c) => c.is_active).map((c) => c.symptom_name);
 }
 
 /**
- * Add a custom symptom for user
+ * Add a custom category for user
+ */
+export async function addCustomCategory(
+  supabase: SupabaseClient,
+  userId: string,
+  symptomName: string,
+  categoryType: 'symptom' | 'wellness' = 'symptom'
+): Promise<CustomCategoryItem> {
+  const trimmed = symptomName.trim().toLowerCase();
+  const { data, error } = await supabase
+    .from('custom_symptoms')
+    .insert({
+      user_id: userId,
+      symptom_name: trimmed,
+      category_type: categoryType,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding custom category:', error.message);
+    throw new Error(error.message || 'Failed to add custom category');
+  }
+
+  return {
+    id: data.id,
+    user_id: data.user_id,
+    symptom_name: data.symptom_name,
+    category_type: data.category_type || 'symptom',
+    is_active: data.is_active !== false,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  };
+}
+
+/**
+ * Update an existing custom category (rename or toggle active state)
+ */
+export async function updateCustomCategory(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string,
+  updates: { symptom_name?: string; is_active?: boolean }
+): Promise<void> {
+  const payload: Record<string, any> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.symptom_name !== undefined) {
+    payload.symptom_name = updates.symptom_name.trim().toLowerCase();
+  }
+  if (updates.is_active !== undefined) {
+    payload.is_active = updates.is_active;
+  }
+
+  const { error } = await supabase
+    .from('custom_symptoms')
+    .update(payload)
+    .eq('id', id)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error updating custom category:', error.message);
+    throw new Error(error.message || 'Failed to update custom category');
+  }
+}
+
+/**
+ * Remove a custom category (preserves historical daily_symptoms records)
+ */
+export async function deleteCustomCategory(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('custom_symptoms')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error deleting custom category:', error.message);
+    throw new Error(error.message || 'Failed to delete custom category');
+  }
+}
+
+/**
+ * Backward compatibility: Add custom symptom by name
  */
 export async function addCustomSymptom(
   supabase: SupabaseClient,
   userId: string,
   symptomName: string
 ): Promise<void> {
-  await supabase.from('custom_symptoms').insert({
-    user_id: userId,
-    symptom_name: symptomName.trim().toLowerCase(),
-    created_at: new Date().toISOString(),
-  });
+  await addCustomCategory(supabase, userId, symptomName, 'symptom');
 }
+

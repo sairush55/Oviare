@@ -210,3 +210,36 @@ export type NotificationPermissionState =
   | 'unsupported'
   | 'needs_install'; // For iOS Safari requiring Home Screen PWA
 
+// -------------------------------------------------------------
+// Phase 5: Personalization, Custom Categories & Data Types
+// -------------------------------------------------------------
+
+export interface UserTrackingPreferences {
+  id?: string;
+  user_id?: string;
+  symptoms_enabled: boolean;
+  mood_enabled: boolean;
+  sleep_enabled: boolean;
+  energy_enabled: boolean;
+  notes_enabled: boolean;
+  intimacy_enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type UpdateUserTrackingPreferencesInput = Partial<
+  Omit<UserTrackingPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+>;
+
+export interface CustomCategoryItem {
+  id: string;
+  user_id: string;
+  symptom_name: string;
+  category_type: 'symptom' | 'wellness';
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type InsightDateRange = '30d' | '90d' | '180d' | 'all' | 'custom';
+

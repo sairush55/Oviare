@@ -262,3 +262,73 @@ CREATE POLICY "Users can insert their own reminder delivery logs" ON public.remi
 DROP POLICY IF EXISTS "Users can update their own reminder delivery logs" ON public.reminder_delivery_logs;
 CREATE POLICY "Users can update their own reminder delivery logs" ON public.reminder_delivery_logs FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+-- ==============================================================================
+-- PHASE 5: PERSONALIZATION, CUSTOM CATEGORIES & USER PREFERENCES
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.user_tracking_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  symptoms_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  mood_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  sleep_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  energy_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  notes_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  intimacy_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT unique_user_tracking_preferences UNIQUE (user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_tracking_preferences_user_id ON public.user_tracking_preferences (user_id);
+ALTER TABLE public.user_tracking_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own tracking preferences" ON public.user_tracking_preferences;
+CREATE POLICY "Users can view their own tracking preferences" ON public.user_tracking_preferences FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own tracking preferences" ON public.user_tracking_preferences;
+CREATE POLICY "Users can insert their own tracking preferences" ON public.user_tracking_preferences FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own tracking preferences" ON public.user_tracking_preferences;
+CREATE POLICY "Users can update their own tracking preferences" ON public.user_tracking_preferences FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own tracking preferences" ON public.user_tracking_preferences;
+CREATE POLICY "Users can delete their own tracking preferences" ON public.user_tracking_preferences FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS on_user_tracking_preferences_updated ON public.user_tracking_preferences;
+CREATE TRIGGER on_user_tracking_preferences_updated BEFORE UPDATE ON public.user_tracking_preferences FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'custom_symptoms' AND column_name = 'category_type'
+  ) THEN
+    ALTER TABLE public.custom_symptoms ADD COLUMN category_type TEXT NOT NULL DEFAULT 'symptom' CHECK (category_type IN ('symptom', 'wellness'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'custom_symptoms' AND column_name = 'is_active'
+  ) THEN
+    ALTER TABLE public.custom_symptoms ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'custom_symptoms' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE public.custom_symptoms ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now());
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'custom_symptoms' AND policyname = 'Users can update their own custom symptoms'
+  ) THEN
+    CREATE POLICY "Users can update their own custom symptoms" ON public.custom_symptoms FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+

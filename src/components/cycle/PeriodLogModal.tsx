@@ -5,7 +5,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { CycleRecord } from '@/types';
 import { useCycleData } from '@/context/CycleDataContext';
-import { Droplet, Calendar, AlertCircle, Check } from 'lucide-react';
+import { Droplet, Calendar, AlertCircle, Check, Trash2 } from 'lucide-react';
 
 interface PeriodLogModalProps {
   isOpen: boolean;
@@ -27,7 +27,7 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
   initialRecord,
   defaultDate,
 }) => {
-  const { addPeriod, editPeriod } = useCycleData();
+  const { addPeriod, editPeriod, deletePeriod } = useCycleData();
 
   const isEditing = Boolean(initialRecord);
 
@@ -39,6 +39,8 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
   const [notes, setNotes] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Sync state on open
@@ -60,7 +62,27 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
       setNotes('');
     }
     setErrorMessage(null);
+    setIsConfirmingDelete(false);
   }, [isOpen, initialRecord, defaultDate]);
+
+  const handleDelete = async () => {
+    if (!initialRecord) return;
+    setIsDeleting(true);
+    setErrorMessage(null);
+    try {
+      const res = await deletePeriod(initialRecord.id);
+      if (res.success) {
+        setIsConfirmingDelete(false);
+        onClose();
+      } else {
+        setErrorMessage(res.error || 'Failed to delete period record.');
+      }
+    } catch {
+      setErrorMessage('An unexpected error occurred while deleting.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,24 +271,69 @@ export const PeriodLogModal: React.FC<PeriodLogModalProps> = ({
         </p>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-oviareBorder">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            isLoading={isSubmitting}
-          >
-            {isEditing ? 'Save Changes' : 'Record Period'}
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-oviareBorder">
+          <div>
+            {isEditing && (
+              isConfirmingDelete ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-red-600 font-medium">Delete record?</span>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    className="h-7 text-xs px-2.5 bg-red-600 hover:bg-red-700 text-white"
+                    isLoading={isDeleting}
+                    onClick={handleDelete}
+                  >
+                    Confirm
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    onClick={() => setIsConfirmingDelete(false)}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 text-xs"
+                  onClick={() => setIsConfirmingDelete(true)}
+                  disabled={isSubmitting || isDeleting}
+                  leftIcon={<Trash2 className="w-3.5 h-3.5 text-red-600" />}
+                >
+                  Delete Period
+                </Button>
+              )
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={isSubmitting || isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              isLoading={isSubmitting}
+              disabled={isDeleting}
+            >
+              {isEditing ? 'Save Changes' : 'Record Period'}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>

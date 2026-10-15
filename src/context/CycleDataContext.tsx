@@ -17,6 +17,9 @@ import {
   CycleRecord,
   MoodType,
   EnergyLevel,
+  UserTrackingPreferences,
+  UpdateUserTrackingPreferencesInput,
+  CustomCategoryItem,
 } from '@/types';
 import { useAuth } from './AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -32,7 +35,16 @@ import {
   deleteDailyLog,
   getCustomSymptoms,
   addCustomSymptom,
+  getCustomCategories,
+  addCustomCategory,
+  updateCustomCategory,
+  deleteCustomCategory,
 } from '@/lib/supabase/dailyLogs';
+import {
+  getTrackingPreferences,
+  upsertTrackingPreferences,
+  DEFAULT_TRACKING_PREFERENCES,
+} from '@/lib/supabase/trackingPreferences';
 import {
   buildCycleHistory,
   calculateCycleStats,
@@ -98,6 +110,28 @@ interface CycleDataContextType {
   getDailyLog: (dateStr: string) => DailyLogRecord | undefined;
   addCustomSymptomName: (name: string) => Promise<void>;
 
+  // Phase 5: Personalization & Custom Categories
+  trackingPreferences: UserTrackingPreferences;
+  updateTrackingPreferences: (
+    updates: UpdateUserTrackingPreferencesInput
+  ) => Promise<{ success: boolean; error?: string }>;
+  customCategories: CustomCategoryItem[];
+  addCustomCategoryItem: (
+    name: string,
+    type?: 'symptom' | 'wellness'
+  ) => Promise<{ success: boolean; error?: string }>;
+  renameCustomCategoryItem: (
+    id: string,
+    newName: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  toggleCustomCategoryItem: (
+    id: string,
+    active: boolean
+  ) => Promise<{ success: boolean; error?: string }>;
+  removeCustomCategoryItem: (
+    id: string
+  ) => Promise<{ success: boolean; error?: string }>;
+
   // Backward compatibility helpers
   entries: DailyLogEntry[];
   addLogEntry: (entry: Omit<DailyLogEntry, 'id' | 'createdAt'>) => void;
@@ -144,13 +178,33 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Real user state (starts completely clean and empty)
   const [userCycleRecords, setUserCycleRecords] = useState<CycleRecord[]>([]);
   const [userDailyLogs, setUserDailyLogs] = useState<DailyLogRecord[]>([]);
-  const [customSymptomsList, setCustomSymptomsList] = useState<string[]>([]);
+  const [userCustomCategories, setUserCustomCategories] = useState<CustomCategoryItem[]>([]);
+  const [userTrackingPreferences, setUserTrackingPreferences] = useState<UserTrackingPreferences>(DEFAULT_TRACKING_PREFERENCES);
   const [isLoadingCycles, setIsLoadingCycles] = useState<boolean>(false);
   const [isLoadingDailyLogs, setIsLoadingDailyLogs] = useState<boolean>(false);
 
   // In-memory isolated demo state (only used when isDemoMode is true)
   const [demoCycleRecords, setDemoCycleRecords] = useState<CycleRecord[]>(DEMO_CYCLE_RECORDS);
   const [demoDailyLogs, setDemoDailyLogs] = useState<DailyLogRecord[]>(DEMO_DAILY_LOGS);
+  const [demoTrackingPreferences, setDemoTrackingPreferences] = useState<UserTrackingPreferences>(DEFAULT_TRACKING_PREFERENCES);
+  const [demoCustomCategories, setDemoCustomCategories] = useState<CustomCategoryItem[]>([
+    {
+      id: 'demo-cat-1',
+      user_id: 'demo-visitor-trial',
+      symptom_name: 'lower back tension',
+      category_type: 'symptom',
+      is_active: true,
+      created_at: '2026-09-01T00:00:00Z',
+    },
+    {
+      id: 'demo-cat-2',
+      user_id: 'demo-visitor-trial',
+      symptom_name: 'hydration goal met',
+      category_type: 'wellness',
+      is_active: true,
+      created_at: '2026-09-05T00:00:00Z',
+    },
+  ]);
 
   // UI toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -172,6 +226,7 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
     setDemoCycleRecords([...DEMO_CYCLE_RECORDS]);
     setDemoDailyLogs([...DEMO_DAILY_LOGS]);
+    setDemoTrackingPreferences({ ...DEFAULT_TRACKING_PREFERENCES });
     setIsDemoMode(true);
     showToast('Entered interactive trial demo with sample data');
   }, [showToast]);
@@ -185,6 +240,7 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     setIsDemoMode(false);
     setDemoCycleRecords([]);
     setDemoDailyLogs([]);
+    setUserCustomCategories([]);
     showToast('Exited demo mode');
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
@@ -209,23 +265,27 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [user, supabase]);
 
-  // Fetch real daily logs from Supabase
+  // Fetch real daily logs, custom categories, and tracking preferences from Supabase
   const fetchUserDailyLogs = useCallback(async () => {
     if (!user) {
       setUserDailyLogs([]);
+      setUserCustomCategories([]);
+      setUserTrackingPreferences(DEFAULT_TRACKING_PREFERENCES);
       return;
     }
 
     try {
       setIsLoadingDailyLogs(true);
-      const [logs, customSymps] = await Promise.all([
+      const [logs, categories, trackingPrefs] = await Promise.all([
         getDailyLogs(supabase, user.id),
-        getCustomSymptoms(supabase, user.id),
+        getCustomCategories(supabase, user.id),
+        getTrackingPreferences(supabase, user.id),
       ]);
       setUserDailyLogs(logs || []);
-      setCustomSymptomsList(customSymps || []);
+      setUserCustomCategories(categories || []);
+      setUserTrackingPreferences(trackingPrefs);
     } catch (err: unknown) {
-      console.error('Failed to load user daily logs:', err);
+      console.error('Failed to load user daily logs & preferences:', err);
     } finally {
       setIsLoadingDailyLogs(false);
     }
@@ -238,6 +298,8 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     } else {
       setUserCycleRecords([]);
       setUserDailyLogs([]);
+      setUserCustomCategories([]);
+      setUserTrackingPreferences(DEFAULT_TRACKING_PREFERENCES);
     }
   }, [user, fetchUserCycles, fetchUserDailyLogs]);
 
@@ -255,6 +317,24 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     if (isDemoMode) return demoDailyLogs;
     return [];
   }, [user, isDemoMode, userDailyLogs, demoDailyLogs]);
+
+  const activeTrackingPreferences = useMemo(() => {
+    if (user) return userTrackingPreferences;
+    if (isDemoMode) return demoTrackingPreferences;
+    return DEFAULT_TRACKING_PREFERENCES;
+  }, [user, isDemoMode, userTrackingPreferences, demoTrackingPreferences]);
+
+  const activeCustomCategories = useMemo(() => {
+    if (user) return userCustomCategories;
+    if (isDemoMode) return demoCustomCategories;
+    return [];
+  }, [user, isDemoMode, userCustomCategories, demoCustomCategories]);
+
+  const customSymptomsList = useMemo(() => {
+    return activeCustomCategories
+      .filter((c) => c.is_active && c.category_type === 'symptom')
+      .map((c) => c.symptom_name);
+  }, [activeCustomCategories]);
 
   // Pure cycle calculations engine outputs
   const cycleHistory = useMemo(() => {
@@ -493,17 +573,153 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     [activeDailyLogs]
   );
 
-  const addCustomSymptomName = async (name: string): Promise<void> => {
+  const updateTrackingPreferences = async (
+    updates: UpdateUserTrackingPreferencesInput
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (user && !isDemoMode) {
+      try {
+        const updated = await upsertTrackingPreferences(supabase, user.id, updates);
+        setUserTrackingPreferences(updated);
+        showToast('Tracking preferences updated');
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to update preferences';
+        return { success: false, error: msg };
+      }
+    }
+
+    setDemoTrackingPreferences((prev) => ({ ...prev, ...updates }));
+    showToast('Preferences updated in demo trial');
+    return { success: true };
+  };
+
+  const addCustomCategoryItem = async (
+    name: string,
+    type: 'symptom' | 'wellness' = 'symptom'
+  ): Promise<{ success: boolean; error?: string }> => {
     const trimmed = name.trim().toLowerCase();
-    if (!trimmed) return;
+    if (!trimmed) {
+      return { success: false, error: 'Category name cannot be empty.' };
+    }
+    if (trimmed.length > 40) {
+      return { success: false, error: 'Category name must be 40 characters or fewer.' };
+    }
+
+    if (activeCustomCategories.some((c) => c.symptom_name.toLowerCase() === trimmed)) {
+      return { success: false, error: `A category named "${trimmed}" already exists.` };
+    }
 
     if (user && !isDemoMode) {
-      await addCustomSymptom(supabase, user.id, trimmed);
-      setCustomSymptomsList((prev) => Array.from(new Set([...prev, trimmed])));
-    } else {
-      setCustomSymptomsList((prev) => Array.from(new Set([...prev, trimmed])));
+      try {
+        const created = await addCustomCategory(supabase, user.id, trimmed, type);
+        setUserCustomCategories((prev) => [...prev, created]);
+        showToast(`Added custom category: ${trimmed}`);
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to add custom category';
+        return { success: false, error: msg };
+      }
     }
+
+    const demoItem: CustomCategoryItem = {
+      id: `demo-cat-${Date.now()}`,
+      user_id: 'demo-visitor-trial',
+      symptom_name: trimmed,
+      category_type: type,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    setDemoCustomCategories((prev) => [...prev, demoItem]);
+    showToast(`Added custom category in demo trial: ${trimmed}`);
+    return { success: true };
   };
+
+  const renameCustomCategoryItem = async (
+    id: string,
+    newName: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const trimmed = newName.trim().toLowerCase();
+    if (!trimmed) {
+      return { success: false, error: 'Category name cannot be empty.' };
+    }
+    if (trimmed.length > 40) {
+      return { success: false, error: 'Category name must be 40 characters or fewer.' };
+    }
+
+    if (activeCustomCategories.some((c) => c.id !== id && c.symptom_name.toLowerCase() === trimmed)) {
+      return { success: false, error: `A category named "${trimmed}" already exists.` };
+    }
+
+    if (user && !isDemoMode) {
+      try {
+        await updateCustomCategory(supabase, user.id, id, { symptom_name: trimmed });
+        setUserCustomCategories((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, symptom_name: trimmed } : c))
+        );
+        showToast('Custom category renamed');
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to rename category';
+        return { success: false, error: msg };
+      }
+    }
+
+    setDemoCustomCategories((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, symptom_name: trimmed } : c))
+    );
+    showToast('Category renamed in demo trial');
+    return { success: true };
+  };
+
+  const toggleCustomCategoryItem = async (
+    id: string,
+    active: boolean
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (user && !isDemoMode) {
+      try {
+        await updateCustomCategory(supabase, user.id, id, { is_active: active });
+        setUserCustomCategories((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, is_active: active } : c))
+        );
+        showToast(active ? 'Category enabled' : 'Category disabled');
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to toggle category';
+        return { success: false, error: msg };
+      }
+    }
+
+    setDemoCustomCategories((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, is_active: active } : c))
+    );
+    showToast(active ? 'Category enabled in demo' : 'Category disabled in demo');
+    return { success: true };
+  };
+
+  const removeCustomCategoryItem = async (
+    id: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (user && !isDemoMode) {
+      try {
+        await deleteCustomCategory(supabase, user.id, id);
+        setUserCustomCategories((prev) => prev.filter((c) => c.id !== id));
+        showToast('Custom category removed');
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to delete category';
+        return { success: false, error: msg };
+      }
+    }
+
+    setDemoCustomCategories((prev) => prev.filter((c) => c.id !== id));
+    showToast('Category removed in demo trial');
+    return { success: true };
+  };
+
+  const addCustomSymptomName = async (name: string): Promise<void> => {
+    await addCustomCategoryItem(name, 'symptom');
+  };
+
 
   // -------------------------------------------------------------
   // Backward Compatibility Helpers (Mapping DailyLogRecord -> DailyLogEntry)
@@ -615,6 +831,15 @@ export const CycleDataProvider: React.FC<{ children: ReactNode }> = ({ children 
         removeDailyWellness,
         getDailyLog,
         addCustomSymptomName,
+
+        // Personalization & Custom Categories (Phase 5)
+        trackingPreferences: activeTrackingPreferences,
+        updateTrackingPreferences,
+        customCategories: activeCustomCategories,
+        addCustomCategoryItem,
+        renameCustomCategoryItem,
+        toggleCustomCategoryItem,
+        removeCustomCategoryItem,
 
         // Legacy compatibility
         entries: mappedLegacyEntries,
